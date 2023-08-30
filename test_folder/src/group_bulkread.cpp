@@ -234,11 +234,29 @@
         do
         {
             /* code */
+            dxl_comm_result = groupBulkRead.txRxPacket();
+            // dxl_comm_result = groupBulkRead.txRxPacket();
+            if(dxl_comm_result != COMM_SUCCESS)
+            {
+                packetHandler_->getTxRxResult(dxl_comm_result);
+                printf("error\n");
+            }
+            for(uint8_t i=1; i<=P_MAX_ID; i++)
+            {
+                present_position[i-1]=groupBulkRead.getData(i, ADDR_MX_PRESENT_POSITION, LEN_MX_PRESENT_POSITION);
 
-            getAllPositions(presentPosition, id);
+                dxl_getdata_result = groupBulkRead.isAvailable(i, ADDR_MX_PRESENT_POSITION, LEN_MX_PRESENT_POSITION);
+                if (dxl_getdata_result != true)
+                {
+                  printf("[ID:%03d] groupBulkRead getdata failed", i);
+                  return 0;
+                }
+
+                printf("[ID:%03d] Present Position : %d \t  Goal Position : %d\n", i, present_position[i-1], goal_position[i-1]);
+            }
 
             printf("------------------%d-----------------------\n", present_position[0]);
-        } while (abs(a-presentPosition[0]) > 20);
+        } while (abs(a-present_position[0]) > 20);
         
     }
 
