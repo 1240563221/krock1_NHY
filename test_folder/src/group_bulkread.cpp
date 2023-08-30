@@ -44,6 +44,7 @@
   #define DEVICENAME                      "/dev/ttyUSB0"      // Check which port is being used on your controller
                                                               // ex) Windows: "COM1"   Linux: "/dev/ttyUSB0"
 
+  #define P_MAX_ID                        3
   #define LEN_MX_GOAL_POSITION            2
 
   #define TORQUE_ENABLE                   1                   // Value for enabling the torque
@@ -129,9 +130,10 @@
 
     uint16_t dxl_goals_position[LEN_MX_GOAL_POSITION] = {DXL_MINIMUM_POSITION_VALUE, DXL_MAXIMUM_POSITION_VALUE};
     uint8_t param_goal_position[2];
+    uint16_t goal_position[P_MAX_ID] = {0};
 
     uint16_t a=0;
-    uint16_t present_position[3]={0};
+    uint16_t present_position[P_MAX_ID]={0};
     // Open port
     if (portHandler_->openPort())
     {
@@ -161,7 +163,7 @@
 
 
     // Enable DXL Torque
-    for(uint8_t i=1; i<=3; i++)
+    for(uint8_t i=1; i<=P_MAX_ID; i++)
     {
         dxl_comm_result = packetHandler_->write1ByteTxRx(portHandler_, i, ADDR_MX_TORQUE_ENABLE, TORQUE_ENABLE, &dxl_error);
         if (dxl_comm_result != COMM_SUCCESS)
@@ -185,7 +187,7 @@
      
     }
 
-    for(uint8_t i=1; i<=3; i++)
+    for(uint8_t i=1; i<=P_MAX_ID; i++)
     {
         dxl_addparam_result = groupBulkRead.addParam(i, ADDR_MX_PRESENT_POSITION, LEN_MX_PRESENT_POSITION);
         if (dxl_addparam_result != true) {
@@ -206,12 +208,13 @@
         }
         else
         {
-            param_goal_position[0] = DXL_LOBYTE(a);
-            param_goal_position[1] = DXL_HIBYTE(a);
-
+          
             // Add Dynamixel#1 goal position value to the Syncwrite storage
-            for(uint8_t i=1; i<=3; i++)
+            for(uint8_t i=1; i<=P_MAX_ID; i++)
             {
+                goal_position[i-1] = a;
+                param_goal_position[0] = DXL_LOBYTE(goal_position[i-1]);
+                param_goal_position[1] = DXL_HIBYTE(goal_position[i-1]);
                 dxl_addparam_result = groupSyncWrite.addParam(i, param_goal_position);
                 if(dxl_addparam_result != true)
                 {
@@ -231,48 +234,18 @@
         do
         {
             /* code */
-            dxl_comm_result = groupBulkRead.txRxPacket();
-            // dxl_comm_result = groupBulkRead.txRxPacket();
-            if(dxl_comm_result != COMM_SUCCESS)
-            {
-                packetHandler_->getTxRxResult(dxl_comm_result);
-                printf("error\n");
-            }
-            for(uint8_t i=1; i<=3; i++)
-            {
-                present_position[i-1]=groupBulkRead.getData(i, 30, 2);
-                dxl_getdata_result = groupBulkRead.isAvailable(i, 30, 2);
-                if (dxl_getdata_result != true)
-                {
-                  printf("[ID:%03d] groupBulkRead getdata failed");
-                  return 0;
-                }
 
-                printf("[ID:%03d] Present Position : %d \t  Present Position : %d\n", i, present_position[i], a);
-            }
+            getAllPositions(presentPosition, id);
 
-            for(uint8_t i=1; i<=3; i++)
-            {
-                present_position[i-1]=groupBulkRead.getData(i, ADDR_MX_PRESENT_POSITION, 2);
-                dxl_getdata_result = groupBulkRead.isAvailable(i, ADDR_MX_PRESENT_POSITION, 2);
-                if (dxl_getdata_result != true)
-                {
-                  printf("[ID:%03d] groupBulkRead getdata failed");
-                  return 0;
-                }
-
-                printf("[ID:%03d] Present Position : %d \t  Present Position : %d\n", i, present_position[i], a);
-            }
-            // groupBulkRead.clearParam();
-            printf("-----------------------------------------\n");
-        } while (abs(a-present_position[0]) > 100);
+            printf("------------------%d-----------------------\n", present_position[0]);
+        } while (abs(a-presentPosition[0]) > 20);
         
     }
 
 
 
     // Disable Dynamixel Torque
-    for(uint8_t i=1;i<=3;i++)
+    for(uint8_t i=1;i<=P_MAX_ID;i++)
     {
         dxl_comm_result = packetHandler_->write1ByteTxRx(portHandler_, i, ADDR_MX_TORQUE_ENABLE, TORQUE_DISABLE, &dxl_error);
         if (dxl_comm_result != COMM_SUCCESS)

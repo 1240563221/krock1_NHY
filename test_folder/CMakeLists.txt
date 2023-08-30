@@ -9,4 +9,4 @@ set(MACRO -DMY_DEBUG)
 add_definitions(${MACRO})
 
 add_executable(ping_test ${SRC})
-target_link_libraries(ping_test dxl_x64_cpp)
+target_link_libraries(ping_test dxl_x64_cpp pthread)
