@@ -302,8 +302,8 @@ void Robot::setAllPositions(double *angles,const int *ids)
         // goalPosition = (angle2Position(angles[i], scanned_model[i], true));//true->angle in radians
         goalPosition = angles[i];//true->angle in radians
         getParameter(goalPosition, param_goal_position, LEN_GOAL_POSITION);
-        cout << "ID = " << ids[i] << endl;
-        cout << "position = " << angles[i] << endl;
+        // cout << "ID = " << ids[i] << endl;
+        // cout << "position = " << angles[i] << endl;
         dxl_addparam_result = groupSyncWrite_position->addParam(ids[i], param_goal_position);
         if (dxl_addparam_result != true) {
             cout << "groupSyncWrite addparam failed. ID = " << ids[i] << endl;
