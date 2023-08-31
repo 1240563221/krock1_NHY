@@ -23,4 +23,4 @@ add_definitions(${MACRO})
 add_executable(app ${SRC})
 
 #link to the shared library
-target_link_libraries(app dxl_x64_cpp pthread)
+target_link_libraries(app dxl_x64_cpp pthread ${CMAKE_CURRENT_SOURCE_DIR}/Libraries/include/libyaml-cpp.a)

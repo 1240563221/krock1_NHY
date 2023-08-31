@@ -8,6 +8,8 @@
 #define MAX_JOYSTICK_VALUE  32767
 #define M_2PI   3.1415925
 
+
+
 typedef struct 
 {
     /* data */

@@ -1,0 +1,37 @@
+###########################General program configuration
+#execution time in [s]
+execution_time: 20
+###########################General controller configuration
+num_motors: 10
+id_numbers:
+  - 1
+  - 2
+  - 3
+  - 4
+  - 5
+  - 6
+  - 7
+  - 8
+  - 9
+  - 10
+########################CONTROL MODE 0-> position control 1-> torque control
+control_mode: 0
+###########################POSITION CONTROL VARIABLES
+#amplitude [degrees]
+amplitude_head: 0
+amplitude_tail: 0
+#amplitude offset [degrees]
+offset: 0
+#frequency [Hz]
+frequency: 0
+#lambda number motors in 1 wave
+lambda: 10
+#position limits [+/-degrees]
+angle_limits: 30
+########################Logging data [true/false]
+#log robot status data
+log_robot_status: false
+#log sensor data
+log_sensor_data: true
+########################Teleoperation [true/false]
+is_teleop: false
