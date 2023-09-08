@@ -32,9 +32,10 @@ Robot::Robot(int num_Motors,int baudrate, int *ID_numbers, const char *portName)
     const char *log;
     bool result = false;
     uint16_t model_number = 0;
-    scanned_model= new int[num_Motors];
+    motor_nums = num_Motors;
+    scanned_model= new int[motor_nums];
 
-    for (uint8_t i = 0; i < num_Motors; i++)
+    for (uint8_t i = 0; i < motor_nums; i++)
     {
         /* code */
         cout << "ID= " << ID_numbers[i] << endl;
@@ -60,14 +61,19 @@ Robot::Robot(int num_Motors,int baudrate, int *ID_numbers, const char *portName)
                                 (uint16_t)P_PRESENT_POSITION, (uint16_t)LEN_PRESENT_POSITION);
     groupSyncRead_current = new dynamixel::GroupSyncRead(portHandler_, packetHandler_,
                                 (uint16_t)P_PRESENT_CURRENT, (uint16_t)LEN_PRESENT_CURRENT);
+    groupSyncRead_voltage = new dynamixel::GroupSyncRead(portHandler_, packetHandler_,
+                                (uint16_t)P_PRESENT_INPUT_VOLTAGE, (uint16_t)LEN_PRESENT_INPUT_VOLTAGE);
+    groupSyncRead_velocity = new dynamixel::GroupSyncRead(portHandler_, packetHandler_,
+                                (uint16_t)P_PRESENT_VELOCITY, (uint16_t)LEN_PRESENT_VELOCITY);
     groupSyncRead_temperature = new dynamixel::GroupSyncRead(portHandler_, packetHandler_,
                                 (uint16_t)P_PRESENT_TEMPERATURE, (uint16_t)LEN_PRESENT_TEMPERATURE);
+                                
     // groupSyncRead_position_current_voltage = new dynamixel::GroupBulkRead(portHandler_, packetHandler_,
     //                             (uint16_t)ADDR_INDIRECT_DATA_FOR_READ, (uint16_t)LEN_INDIRECTDATA_FOR_READ);
 
     //ping each motor to validate the communication is working
     uint8_t dxl_error = 0;                          // Dynamixel error
-    for (int i=0; i<num_Motors; i++) {
+    for (int i=0; i<motor_nums; i++) {
         result = packetHandler_->ping(portHandler_, ID_numbers[i], &model_number, &dxl_error);
         if (result != COMM_SUCCESS) {
             cout << "Failed to ping, check config file and motor ID: " << ID_numbers[i] << endl;
@@ -86,7 +92,7 @@ Robot::Robot(int num_Motors,int baudrate, int *ID_numbers, const char *portName)
     bool dxl_addparam_result = false;                 // addParam result
 
     groupSyncRead_position->clearParam();
-    for (int i=0; i<NumMotors; i++) {
+    for (int i=0; i<motor_nums; i++) {
         dxl_addparam_result =groupSyncRead_position->addParam(ID_numbers[i]);
         if (dxl_addparam_result != true) {
             cout << "groupSyncRead addparam failed. ID = " << ID_numbers[i] << endl;
@@ -100,8 +106,8 @@ Robot::Robot(int num_Motors,int baudrate, int *ID_numbers, const char *portName)
 
     //INITIALIZE POSTURE:
     /* Initialize center values of servos -> used for the initial posture of the robot*/
-    pos_center = new double[num_Motors];
-    for (int i = 0; i < num_Motors; i++)
+    pos_center = new double[motor_nums];
+    for (int i = 0; i < motor_nums; i++)
         pos_center[i] = 3048;  
     SetInitialPosture(ID_numbers); 
 }
@@ -138,7 +144,7 @@ void Robot::torque_enable(int on_off,int id)
 
 void Robot::set_all_torque_enable(int on_off, int *ids)
 { //1->enable
-    for (int i=0; i<NumMotors; i++){
+    for (int i=0; i<motor_nums; i++){
         writeRegister(ids[i], P_TORQUE_ENABLE, LEN_TORQUE_ENABLE, on_off);//on_off=1 [ON]
     }
 }
@@ -252,7 +258,7 @@ bool Robot::readRegister(uint8_t id, uint16_t address, uint16_t length, int32_t 
 // set the motors in comprehensive joint mode
 void Robot::jointMode(int *ids, int32_t velocity, int32_t acceleration)
 {
-    for (int i = 0; i < NumMotors; i++) {
+    for (int i = 0; i < motor_nums; i++) {
         torque_enable(0, ids[i]); //torque OFF
         //set position control mode
         writeRegister(ids[i], P_OPERATING_MODE, LEN_OPERATING_MODE, POSITION_CONTROL_MODE);
@@ -268,7 +274,7 @@ void Robot::jointMode(int *ids, int32_t velocity, int32_t acceleration)
 // set all motors in position control mode
 void Robot::setAllJointPositionControlMode(int *ids)
 {
-    for (int i = 0; i < NumMotors; i++) {
+    for (int i = 0; i < motor_nums; i++) {
         torque_enable(0, ids[i]); //torque OFF
         //set position control mode
         writeRegister(ids[i], P_OPERATING_MODE, LEN_OPERATING_MODE, POSITION_CONTROL_MODE);
@@ -279,7 +285,7 @@ void Robot::setAllJointPositionControlMode(int *ids)
 // set all motors in torque control mode
 void Robot::setAllJointCurrentControlMode(int *ids)
 {
-    for (int i = 0; i < NumMotors; i++) {
+    for (int i = 0; i < motor_nums; i++) {
         torque_enable(0, ids[i]); //torque OFF
         //set current control mode
         writeRegister(ids[i], P_OPERATING_MODE, LEN_OPERATING_MODE, TORQUE_CONTROL_MODE);
@@ -298,7 +304,7 @@ void Robot::setAllPositions(double *angles, int *ids)
     bool dxl_addparam_result = false;                 // addParam result
     uint8_t param_goal_position[LEN_GOAL_POSITION] = {0};
 
-    for (int i=0; i<NumMotors; i++) {
+    for (int i=0; i<motor_nums; i++) {
         //convert from Radians to motor value
         // goalPosition = (angle2Position(angles[i], scanned_model[i], true));//true->angle in radians
         goalPosition = angles[i];//true->angle in radians
@@ -326,14 +332,8 @@ void Robot::setAllCurrents(double *currents, int *ids) //current unit [ticks]
     uint8_t param_goal_current[LEN_GOAL_CURRENT] = {0};
     double temp_data=0;
 
-    for (int i=0; i<NumMotors; i++) {
+    for (int i=0; i<motor_nums; i++) {
 
-        // temp_data = currents[i];
-        // if(temp_data < 0)
-        // {
-        //     temp_data *= -1;
-        //     temp_data += 1023;
-        // }
         getParameter(currents[i], param_goal_current, LEN_GOAL_CURRENT);
         dxl_addparam_result = groupSyncWrite_current->addParam(ids[i], param_goal_current);
         if (dxl_addparam_result != true)
@@ -387,7 +387,7 @@ void Robot::Anglelimits(int CW, int CCW, int *ids) //CW minimum CCW maximum [in 
     // CW = angle2Position(CW, scanned_model[1], false);
     // CCW = angle2Position(CCW, scanned_model[1], false);
 
-    for (int i = 0; i < NumMotors; i++){
+    for (int i = 0; i < motor_nums; i++){
         torque_enable(0, ids[i]); //torque OFF
         writeRegister(ids[i], P_POSITION_LOW_LIMIT, LEN_POSITION_LIMIT, CW);
         writeRegister(ids[i], P_POSITION_HIGH_LIMIT, LEN_POSITION_LIMIT, CCW);
@@ -402,11 +402,9 @@ void Robot::CurrentLimit(float current_percentage,int *ids)
     // int current_value=(int) CURRENT_LIMIT*(current_percentage/100) - 1;
     int current_value = (int) CURRENT_LIMIT*(current_percentage/100);
 
-    for (int i = 0; i < NumMotors; i++) {
+    for (int i = 0; i < motor_nums; i++) {
         torque_enable(0, ids[i]); //torque OFF
         writeRegister(ids[i], P_CURRENT_HIGH_LIMIT, LEN_CURRENT_LIMIT, current_value);
-        // writeRegister(ids[i], P_MAX_TORQUE, LEN_CURRENT_LIMIT, current_value);
-        // writeRegister(ids[i], P_TORQUE_LIMIT, LEN_CURRENT_LIMIT, current_value);
         torque_enable(1, ids[i]); //torque ON
     }
 }
@@ -414,7 +412,7 @@ void Robot::CurrentLimit(float current_percentage,int *ids)
 /* Set return delay time*/
 void Robot::SetReturnDelayTime(int DelayTime,int *ids)
 {
-    for (int i = 0; i < NumMotors; i++) {
+    for (int i = 0; i < motor_nums; i++) {
         torque_enable(0, ids[i]); //torque OFF
         writeRegister(ids[i], P_RETURN_DELAY_TIME, LEN_RETURN_DELAY_TIME, DelayTime);
         torque_enable(1, ids[i]); //torque ON
@@ -423,7 +421,7 @@ void Robot::SetReturnDelayTime(int DelayTime,int *ids)
 
 
 /* get functions */
-// get the position of all servos to angles in radians
+// get the position of all servos to angles in radians ------- unit: (2*Pi)/4096 radian
 void Robot::getAllPositions(double *angles, int *ids)
 {   
     int dxl_comm_result = COMM_TX_FAIL;               // Communication result
@@ -434,21 +432,21 @@ void Robot::getAllPositions(double *angles, int *ids)
     if (dxl_comm_result != COMM_SUCCESS)
         cout << packetHandler_->getTxRxResult(dxl_comm_result) << endl;
 
-    for (int i = 0; i < NumMotors; i++)
+    for (int i = 0; i < motor_nums; i++)
             angles[i]=groupSyncRead_position->getData(ids[i],
                         P_PRESENT_POSITION, LEN_PRESENT_POSITION);
 }
 
-// get the current of all servos
+// get the current of all servos    unit: 3.36mA
 void Robot::getAllCurrents(double *currents, int *ids)
 {
     int dxl_comm_result = COMM_TX_FAIL;               // Communication result
     bool dxl_addparam_result = false;                 // addParam result
-    uint16_t temp_data=0;
+    int16_t temp_data=0;
 
     // Add parameter storage for reading -> this step can be done only once
     groupSyncRead_current->clearParam();
-    for (int i = 0; i < NumMotors; i++) {
+    for (int i = 0; i < motor_nums; i++) {
         dxl_addparam_result = groupSyncRead_current->addParam(ids[i]);
         if (dxl_addparam_result != true) {
             cout << "groupSyncRead_current addparam failed. ID = " << ids[i] << endl;
@@ -460,29 +458,77 @@ void Robot::getAllCurrents(double *currents, int *ids)
     if (dxl_comm_result != COMM_SUCCESS)
         cout << packetHandler_->getTxRxResult(dxl_comm_result) << endl;
 
-    for(int i = 0; i < NumMotors; i++)
+    for(int i = 0; i < motor_nums; i++)
     {
         temp_data = groupSyncRead_current->getData(ids[i],
                         (uint16_t)P_PRESENT_CURRENT, (uint16_t)LEN_PRESENT_CURRENT);
-        if(temp_data > 0x0800)
-        {
-            currents[i] = temp_data - 0x0800;
-            currents[i] *= -1; 
-        }
-        else if(temp_data < 0x0800)
-        {
-            currents[i] = 0x0800 - temp_data;
-        }
-        else
-        {
-            currents[i] = 0;
-        }
-        // currents[i] = groupBulkRead_current->getData(ids[i],
-        //                 (uint16_t)P_PRESENT_CURRENT, (uint16_t)LEN_PRESENT_CURRENT);
+        currents[i] = double(temp_data);
     }
 }
 
-// get the temperature of all servos
+
+// get the input voltage of all servos  -- unit: 0.1V
+void Robot::getAllVoltage(double *input_voltage, int *ids)
+{
+    int dxl_comm_result = COMM_TX_FAIL;               // Communication result
+    bool dxl_addparam_result = false;                 // addParam result
+
+    // Add parameter storage for reading -> this step can be done only once
+    groupSyncRead_voltage->clearParam();
+    for (int i = 0; i < motor_nums; i++) {
+        dxl_addparam_result = groupSyncRead_voltage->addParam(ids[i]);
+        if (dxl_addparam_result != true) {
+            cout << "groupSyncRead_voltage addparam failed. ID = " << ids[i] << endl;
+            return;
+        }  
+    }
+
+    dxl_comm_result = groupSyncRead_voltage->txRxPacket();
+    if (dxl_comm_result != COMM_SUCCESS)
+        cout << packetHandler_->getTxRxResult(dxl_comm_result) << endl;
+
+    for(int i = 0; i < motor_nums; i++)
+    {
+        input_voltage[i] = groupSyncRead_voltage->getData(ids[i],
+                        (uint16_t)P_PRESENT_INPUT_VOLTAGE, (uint16_t)LEN_PRESENT_INPUT_VOLTAGE);
+    }
+}
+
+
+
+// get the velocity of all servos  ---- unit: 1r/min
+void Robot::getAllVelocity(double *velocity, int *ids)
+{
+    int dxl_comm_result = COMM_TX_FAIL;               // Communication result
+    bool dxl_addparam_result = false;                 // addParam result
+    int16_t temp_data=0;
+
+    // Add parameter storage for reading -> this step can be done only once
+    groupSyncRead_velocity->clearParam();
+    for (int i = 0; i < motor_nums; i++) {
+        dxl_addparam_result = groupSyncRead_velocity->addParam(ids[i]);
+        if (dxl_addparam_result != true) {
+            cout << "groupSyncRead_velocity addparam failed. ID = " << ids[i] << endl;
+            return;
+        }  
+    }
+
+    dxl_comm_result = groupSyncRead_velocity->txRxPacket();
+    if (dxl_comm_result != COMM_SUCCESS)
+        cout << packetHandler_->getTxRxResult(dxl_comm_result) << endl;
+
+    for(int i = 0; i < motor_nums; i++)
+    {
+
+        temp_data = groupSyncRead_velocity->getData(ids[i],
+                        (uint16_t)P_PRESENT_VELOCITY, (uint16_t)LEN_PRESENT_VELOCITY);
+        velocity[i] = (double)temp_data;
+    }
+}
+
+
+
+// get the temperature of all servos ----- unit:­°C
 void Robot::getAllTemperatures(double *temperatures, int *ids)
 {
     int dxl_comm_result = COMM_TX_FAIL;               // Communication result
@@ -490,7 +536,7 @@ void Robot::getAllTemperatures(double *temperatures, int *ids)
 
     // Add parameter storage for reading -> this step can be done only once
     groupSyncRead_temperature->clearParam();
-    for (int i = 0; i < NumMotors; i++) {
+    for (int i = 0; i < motor_nums; i++) {
         dxl_addparam_result = groupSyncRead_temperature->addParam(ids[i]);
         if (dxl_addparam_result != true) {
             cout << "groupSyncRead_current addparam failed. ID = " << ids[i] << endl;
@@ -502,7 +548,7 @@ void Robot::getAllTemperatures(double *temperatures, int *ids)
     if (dxl_comm_result != COMM_SUCCESS)
         cout << packetHandler_->getTxRxResult(dxl_comm_result) << endl;
 
-    for (int i=0; i<NumMotors; i++)
+    for (int i=0; i<motor_nums; i++)
         temperatures[i] = groupSyncRead_temperature->getData(ids[i],
                             (uint16_t)P_PRESENT_TEMPERATURE, (uint16_t)LEN_PRESENT_TEMPERATURE);
 }
@@ -514,7 +560,7 @@ void Robot::getAllTemperatures(double *temperatures, int *ids)
 
 // //     for (int i = 0; i < NumMotors; i++) {
 // //         torque_enable(0, ids[i]); //torque OFF
-// //         //read position
+// //         //read positiony
 // //         writeRegister(ids[i], start_ind_adress_write + 0 + 0, 2, P_PRESENT_POSITION + 0);
 // //         writeRegister(ids[i], start_ind_adress_write + 0 + 2, 2, P_PRESENT_POSITION + 1);
 // //         writeRegister(ids[i], start_ind_adress_write + 0 + 4, 2, P_PRESENT_POSITION + 2);
@@ -526,7 +572,7 @@ void Robot::getAllTemperatures(double *temperatures, int *ids)
 // //         writeRegister(ids[i], start_ind_adress_write + 12 + 0, 2, P_PRESENT_INPUT_VOLTAGE + 0);
 // //         writeRegister(ids[i], start_ind_adress_write + 12 + 2, 2, P_PRESENT_INPUT_VOLTAGE + 1);
 
-// //         torque_enable(1, ids[i]); //torque ON
+// //         torque_enable(1, ids[i]); //tsyncwriteorque ON
 // //         dxl_addparam_result = groupSyncRead_position_current_voltage->addParam(ids[i]);
 // //         if (dxl_addparam_result != true) {
 // //             cout << "groupBulkRead_current addparam failed ID = " << ids[i] << endl;

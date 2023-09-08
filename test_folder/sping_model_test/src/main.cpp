@@ -22,6 +22,7 @@ typedef struct
     bool log_sensor_data;
     bool is_teleop;
     double spring_coefficient;
+    double damping_coefficient;
 }
 YamlDataTPDF;
 
@@ -62,6 +63,7 @@ int ReadGlobalConfig()
     yamlData.log_sensor_data = config["log_sensor_data"].as<bool>();
     yamlData.is_teleop = config["is_teleop"].as<bool>();
     yamlData.spring_coefficient = config["spring_coefficient"].as<double>();
+    yamlData.damping_coefficient = config["damping_coefficient"].as<double>();
 
 #ifdef MY_DEBUG
     cout << " execution_time : "<< yamlData.execution_time  << endl;
@@ -87,10 +89,12 @@ int ReadGlobalConfig()
 
 
 double present_position[P_MAX_ID]={0};
+double present_velocity[P_MAX_ID]={0};
+double present_voltage[P_MAX_ID]={0};
+double present_temperature[P_MAX_ID]={0};
+double present_current[P_MAX_ID]={0};
 
-double Ftorque[P_MAX_ID]={0};
-
-
+double Ftorque[P_MAX_ID]={10,-10};
 
 int main()
 {
@@ -105,44 +109,66 @@ int main()
     robot.Anglelimits(0, 4095, id);
     robot.setAllJointCurrentControlMode(id);
     robot.CurrentLimit((float)100, id);
+    for(uint8_t i=0; i<P_MAX_ID; i++)
+    {
+        goal_position[i] = Ftorque[i];
+    }
+
+    robot.setAllCurrents(goal_position, id);
     sleep(1);
 
+    // while(1)
+    // {
+    //     for(uint8_t i=0; i<P_MAX_ID; i++)
+    //     {
+    //         goal_position[i] = Ftorque[i];
+    //         // cout << "goal_position = " << goal_position[i-1] << endl;
+    //         // cout << "a = " << a << endl;
+    //     }
+
+    //     robot.setAllCurrents(goal_position, id);
+
+    //     robot.getAllPositions(present_position, id);
+    //     robot.getAllVelocity(present_velocity, id);
+
+    //     for (uint8_t i = 0; i < P_MAX_ID; i++)
+    //     {
+    //         /* code */
+    //         // cout << "old_position = " << (int)((int)present_position[i-1] + 4096) % 4096 << endl;
+
+    //         present_position[i] =  2048 - (int)((int)present_position[i] + 4096) % 4096; 
+    //         present_velocity[i] *= -1;
+    //         // cout << "present_position = " << present_position[i-1] << endl;
+    //         // present_velocity[i-1] = present_position[i-1] - previous_position[i-1];
+            
+    //         // Ftorque[i] = yamlData.spring_coefficient * present_position[i];
+    //         Ftorque[i] = yamlData.spring_coefficient * present_position[i] - yamlData.damping_coefficient * present_velocity[i];
+    //         // Ftorque[i-1] = u * present_velocity[i-1] - k * present_position[i-1];
+    //         // previous_position[i-1] = present_position[i-1];
+    //         cout << "spring value : " << yamlData.spring_coefficient * present_position[i] << endl;
+    //         printf("[ID:%03d] Present Position : %.3f   Present Velocity : %.3f    Torque : %.3f \t\n", i, present_position[i], present_velocity[i], Ftorque[i]);
+
+    //     }
+    //     printf("----------------------------------------------\n");
+    //     usleep(10000);
+    // }
     while(1)
     {
-
-
-        for(uint8_t i=1; i<=P_MAX_ID; i++)
-        {
-            goal_position[i-1] = Ftorque[i-1];
-            // cout << "goal_position = " << goal_position[i-1] << endl;
-            // cout << "a = " << a << endl;
-        }
-
-        robot.setAllCurrents(goal_position, id);
-
-
-
         robot.getAllPositions(present_position, id);
+        robot.getAllCurrents(present_current, id);
+        robot.getAllVelocity(present_velocity, id);
+        robot.getAllVoltage(present_voltage, id);
+        robot.getAllTemperatures(present_temperature, id);
 
-        for (uint8_t i = 1; i <= P_MAX_ID; i++)
+        for(uint8_t i=0; i<P_MAX_ID; i++)
         {
-            /* code */
-            // cout << "old_position = " << (int)((int)present_position[i-1] + 4096) % 4096 << endl;
-
-            present_position[i-1] =  2048 - (int)((int)present_position[i-1] + 4096) % 4096; 
-            // cout << "present_position = " << present_position[i-1] << endl;
-            // present_velocity[i-1] = present_position[i-1] - previous_position[i-1];
-            
-            Ftorque[i-1] =  yamlData.spring_coefficient * present_position[i-1];
-            // Ftorque[i-1] = u * present_velocity[i-1] - k * present_position[i-1];
-            // previous_position[i-1] = present_position[i-1];
-
-            printf("[ID:%03d] Present Position : %.3f    Torque : %.3f \t\n", i, present_position[i-1], Ftorque[i-1]);
-
+            present_position[i] = double((int)((int)present_position[i] + 4096) % 4096)*360/4096;
+            printf("ID[%d]    position:%.3f, current:%.3f,  velocity:%.3f    voltage:%.3f,   temperature:%.3f \n", i, present_position[i],
+                    present_current[i]*3.36, present_velocity[i], present_voltage[i]/10, present_temperature[i]);
         }
-        printf("----------------------------------------------\n");
-        usleep(10000);
 
+        sleep(1);
+        cout << "-------------------------------------"<< endl;
     }
 }
 

@@ -28,4 +28,6 @@ log_sensor_data: true
 ########################Teleoperation [true/false]
 is_teleop: false
 
-spring_coefficient: 0.15
+spring_coefficient: 0.1
+
+damping_coefficient: 0.01

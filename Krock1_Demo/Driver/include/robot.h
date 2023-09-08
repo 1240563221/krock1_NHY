@@ -27,13 +27,12 @@ private:
     dynamixel::GroupSyncWrite *groupSyncWrite_position;
     dynamixel::GroupSyncWrite *groupSyncWrite_current;
 
-    // dynamixel::GroupBulkRead *groupBulkRead_position;
-    // dynamixel::GroupBulkRead *groupBulkRead_current;
-    // dynamixel::GroupBulkRead *groupBulkRead_temperature;
+
     dynamixel::GroupSyncRead *groupSyncRead_position;
     dynamixel::GroupSyncRead *groupSyncRead_current;
+    dynamixel::GroupSyncRead *groupSyncRead_voltage;
+    dynamixel::GroupSyncRead *groupSyncRead_velocity;
     dynamixel::GroupSyncRead *groupSyncRead_temperature;
-    // dynamixel::GroupBulkRead *groupBulkRead_position_current_voltage;
 
     // SyncWriteHandler syncWriteHandler_[MAX_HANDLER_NUM];
     // SyncReadHandler  syncReadHandler_[MAX_HANDLER_NUM];
@@ -45,6 +44,7 @@ public:
     double *pos_center;
     int *scanned_model;
     double presentPosition[P_MAX_ID];
+    int motor_nums;
 
     Robot(int num_Motors, int baudrate, int *ID_numbers, const char *portName);
     ~Robot();
@@ -62,6 +62,8 @@ public:
     void setAllCurrents(double *currents, int *ids);
     void getAllPositions(double *angles, int *ids);
     void getAllCurrents(double *currents, int *ids);
+    void getAllVoltage(double *input_voltage, int *ids);
+    void getAllVelocity(double *velocity, int *ids);
     void getAllTemperatures(double *temperatures, int *ids);
     // void Assign_read_indirect_adress(int start_ind_adress_write, int *ids);
     // void IndirectAddressReading(int *ids, double *angles, double *current, double *voltage);

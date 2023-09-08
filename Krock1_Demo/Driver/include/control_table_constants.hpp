@@ -16,7 +16,6 @@
 
 
 #define M_PI                        3.1415926
-#define NumMotors                   2
 #define P_MAX_ID                    2
 
 
@@ -118,6 +117,7 @@
     #define LEN_GOAL_CURRENT            2
     #define LEN_PRESENT_POSITION        4
     #define LEN_PRESENT_CURRENT         2
+    #define LEN_PRESENT_VELOCITY        4
     #define LEN_PRESENT_INPUT_VOLTAGE   2
     #define LEN_PRESENT_TEMPERATURE     1
     #define LEN_LED                     1
