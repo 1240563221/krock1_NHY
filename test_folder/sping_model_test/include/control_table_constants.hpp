@@ -16,7 +16,7 @@
 
 
 #define M_PI                        3.1415926
-#define P_MAX_ID                    2
+#define P_MAX_ID                    1
 
 
 #if PROTOCOL_VERSION == 2

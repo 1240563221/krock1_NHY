@@ -20,6 +20,7 @@ typedef struct {
 
 
 class Robot {
+
 private:
     dynamixel::PortHandler   *portHandler_;
     dynamixel::PacketHandler *packetHandler_;
@@ -40,11 +41,27 @@ private:
     dynamixel::GroupBulkRead  *groupBulkRead_;
     dynamixel::GroupBulkWrite *groupBulkWrite_;
 
+    int motor_nums;
+    int motor_id[P_MAX_ID];
+
 public:
     double *pos_center;
     int *scanned_model;
     double presentPosition[P_MAX_ID];
-    int motor_nums;
+
+    double feedback_position[P_MAX_ID];         //unit  
+    double feedback_velocity[P_MAX_ID];
+    double feedback_current[P_MAX_ID];
+    double feedback_voltage[P_MAX_ID];
+    double feedback_temperature[P_MAX_ID];
+
+    double goal_current[P_MAX_ID];
+    double goal_position[P_MAX_ID];
+
+    double L;
+    double radius;
+    double K;
+    double D;
 
     Robot(int num_Motors, int baudrate, int *ID_numbers, const char *portName);
     ~Robot();
@@ -65,13 +82,16 @@ public:
     void getAllVoltage(double *input_voltage, int *ids);
     void getAllVelocity(double *velocity, int *ids);
     void getAllTemperatures(double *temperatures, int *ids);
-    // void Assign_read_indirect_adress(int start_ind_adress_write, int *ids);
-    // void IndirectAddressReading(int *ids, double *angles, double *current, double *voltage);
     void SetInitialPosture( int *ids);
     void Close_port(int *ids);
     void Anglelimits(int CW, int CCW, int *ids);
     void CurrentLimit(float current, int *ids);
     void SetReturnDelayTime(int DelayTime, int *ids);
+
+    void unitConversion(double goal_position, double *position, double *current, double *velocity);
+    void vaamModel(double L, double r, double K, double D, double *theta, double *dtheta, double *Fext, double *F);
+
+
 };
 
 #endif

@@ -9,6 +9,7 @@
 #include "robot.h"
 #include <bitset>
 #include <cstring>
+#include <math.h>
 
 using namespace std;
 
@@ -39,6 +40,7 @@ Robot::Robot(int num_Motors,int baudrate, int *ID_numbers, const char *portName)
     {
         /* code */
         cout << "ID= " << ID_numbers[i] << endl;
+        motor_id[i] =  ID_numbers[i]; 
     }
     
 
@@ -113,7 +115,9 @@ Robot::Robot(int num_Motors,int baudrate, int *ID_numbers, const char *portName)
 }
 
 Robot::~Robot()
-{
+{  
+    set_all_torque_enable(0, motor_id);
+    printf("88\n");
 }
 
 void Robot::init(const char *device_name, int baud_rate, float protocol_version)
@@ -553,60 +557,36 @@ void Robot::getAllTemperatures(double *temperatures, int *ids)
                             (uint16_t)P_PRESENT_TEMPERATURE, (uint16_t)LEN_PRESENT_TEMPERATURE);
 }
 
-// // // get multiple variables simultaneously
-// // void Robot::Assign_read_indirect_adress(int start_ind_adress_write, int *ids)
-// // {
-// //     bool dxl_addparam_result = false;    
 
-// //     for (int i = 0; i < NumMotors; i++) {
-// //         torque_enable(0, ids[i]); //torque OFF
-// //         //read positiony
-// //         writeRegister(ids[i], start_ind_adress_write + 0 + 0, 2, P_PRESENT_POSITION + 0);
-// //         writeRegister(ids[i], start_ind_adress_write + 0 + 2, 2, P_PRESENT_POSITION + 1);
-// //         writeRegister(ids[i], start_ind_adress_write + 0 + 4, 2, P_PRESENT_POSITION + 2);
-// //         writeRegister(ids[i], start_ind_adress_write + 0 + 6, 2, P_PRESENT_POSITION + 3);
-// //         //read current
-// //         writeRegister(ids[i], start_ind_adress_write + 8 + 0, 2, P_PRESENT_CURRENT + 0);
-// //         writeRegister(ids[i], start_ind_adress_write + 8 + 2, 2, P_PRESENT_CURRENT + 1);
-// //         //read voltage
-// //         writeRegister(ids[i], start_ind_adress_write + 12 + 0, 2, P_PRESENT_INPUT_VOLTAGE + 0);
-// //         writeRegister(ids[i], start_ind_adress_write + 12 + 2, 2, P_PRESENT_INPUT_VOLTAGE + 1);
+//
+void Robot::unitConversion(double goal_position, double *position, double *torque, double *velocity)
+{
+    static double previous_position[P_MAX_ID]={0};
+    for (int  i = 0; i < motor_nums; i++)
+    {
+        position[i] = double((int)((int)position[i] + 4096.) % 4096)*360. / 4096.;
+        position[i] = 2*M_PI*(goal_position - position[i])/360.;            //get delta position compare to xd(180)
+        velocity[i] = (position[i] - previous_position[i])/0.05;
+        // velocity[i] = 0 - velocity[i]*2.*M_PI/60.;                          //get the rotational velocity(rad/s)
+        torque[i] = torque[i]*6.521/1941.;                                     //get the rotational torque(N)
+        previous_position[i] = position[i];
+        printf("ID[%d]    position:%.3f, velocity:%.3f  torque:%.3f\n", i, position[i], velocity[i],  torque[i]);
+    }
+    
+}
 
-// //         torque_enable(1, ids[i]); //tsyncwriteorque ON
-// //         dxl_addparam_result = groupSyncRead_position_current_voltage->addParam(ids[i]);
-// //         if (dxl_addparam_result != true) {
-// //             cout << "groupBulkRead_current addparam failed ID = " << ids[i] << endl;
-// //             return;
-// //         }  
-// //     }
-// // }
+//set ddtheta = 0, L = 0, Fce = -Fext*sin(theta)L + r*(2*K*theta*r + 2*D*dtheta*r)
+void Robot::vaamModel(double L, double r, double K, double D, double *theta, double *dtheta, double *Fext, double *F)
+{
+    for (int i = 0; i < motor_nums; i++)
+    {
+        F[i] = r*2*r*(K*theta[i]+D*dtheta[i]) - Fext[i]*sin(theta[i])*L;
 
-// // void Robot::IndirectAddressReading(int *ids, double *angles, double *current, double *voltage)
-// // {
-// //     int dxl_comm_result = COMM_TX_FAIL;               // Communication result
-// //     bool dxl_addparam_result = false;                 // addParam result
-// //     int current_temp = 0;
-
-// //     dxl_comm_result = groupSyncRead_position_current_voltage->txRxPacket();
-// //     if (dxl_comm_result != COMM_SUCCESS)
-// //         cout << packetHandler_->getTxRxResult(dxl_comm_result) << endl;
-
-// //     for (int i = 0; i < NumMotors; i++) {
-// //         // Get present position value [radians]
-// //         angles[i] = groupSyncRead_position_current_voltage->getData(ids[i],
-// //                    ADDR_INDIRECT_DATA_FOR_READ,LEN_PRESENT_POSITION);
-// //         // Get present current value in mA
-// //         current[i] = (short)groupSyncRead_position_current_voltage->getData(ids[i],
-// //                     ADDR_INDIRECT_DATA_FOR_READ + 4,LEN_PRESENT_CURRENT);
-// //         // Get present voltage value in volts
-// //         voltage[i] = groupSyncRead_position_current_voltage->getData(ids[i],
-// //                     ADDR_INDIRECT_DATA_FOR_READ+4+2,LEN_PRESENT_INPUT_VOLTAGE);
-// //     }
-
-// //     // formating
-// //     for (int i = 0; i < NumMotors; i++) {
-// //         angles[i] = position2Angle(angles[i],scanned_model[i],true);  //in radians
-// //         current[i] = current[i]*CURRENT_UNIT;  // in mA
-// //         voltage[i] = voltage[i]/10;  // in v
-// //     }
-// // }
+        cout << "Fext = " << Fext[i]*sin(theta[0])*L << endl;
+        cout << "Fpe = " << r*2*r*(K*theta[i]+D*dtheta[i]) << 
+                " Fk = "<< 2*r*K*theta[i]*r << "  Fd =  "<< 2*r*D*dtheta[i]*r <<endl;
+        cout << "F = " << F[i] << endl;
+        F[i] *= 1941/6; 
+        cout << "Fout = " << F[i] << endl;
+    }
+}

@@ -2,6 +2,7 @@
 #include "yaml-cpp/yaml.h"
 #include <vector>
 #include "robot.h"
+#include <signal.h>
 
 using namespace std;
 
@@ -23,6 +24,10 @@ typedef struct
     bool is_teleop;
     double spring_coefficient;
     double damping_coefficient;
+    double vaam_L;
+    double vaam_radius;
+    double vaam_K;
+    double vaam_D;
 }
 YamlDataTPDF;
 
@@ -64,6 +69,10 @@ int ReadGlobalConfig()
     yamlData.is_teleop = config["is_teleop"].as<bool>();
     yamlData.spring_coefficient = config["spring_coefficient"].as<double>();
     yamlData.damping_coefficient = config["damping_coefficient"].as<double>();
+    yamlData.vaam_L = config["vaam_L"].as<double>();
+    yamlData.vaam_radius = config["vaam_radius"].as<double>();
+    yamlData.vaam_K = config["vaam_K"].as<double>();
+    yamlData.vaam_D = config["vaam_D"].as<double>();
 
 #ifdef MY_DEBUG
     cout << " execution_time : "<< yamlData.execution_time  << endl;
@@ -87,88 +96,63 @@ int ReadGlobalConfig()
     return 1;
 }
 
+typedef struct
+{
+    /* data */
+    double radius;
+    // double i1;
+    // double i2;
+    double L;
+    double K;
+    double D;
+    double Nm;
+}VAAMTPDF;
 
-double present_position[P_MAX_ID]={0};
-double present_velocity[P_MAX_ID]={0};
-double present_voltage[P_MAX_ID]={0};
-double present_temperature[P_MAX_ID]={0};
-double present_current[P_MAX_ID]={0};
+VAAMTPDF vaamData;
 
-double Ftorque[P_MAX_ID]={10,-10};
+void vaamInit(Robot &robot, YamlDataTPDF &yamlData)
+{
+    robot.L = yamlData.vaam_L;
+    robot.radius = yamlData.vaam_radius;
+    robot.K = yamlData.vaam_K;
+    robot.D = yamlData.vaam_D; 
+}
+
+
+
+
+double Ftorque[P_MAX_ID]={0};
+double theta=0;
 
 int main()
 {
     ReadGlobalConfig();
-    Robot robot(yamlData.num_motors, 57600, id, "/dev/ttyUSB0");
-
-    double goal_position[P_MAX_ID]={0};
-
-    int dxl_comm_result = COMM_TX_FAIL;             // Communication result
-    bool dxl_getdata_result = false; 
+    Robot robot(yamlData.num_motors, 57600, id, "/dev/ttyUSB1");
+    vaamInit(robot, yamlData);
 
     robot.Anglelimits(0, 4095, id);
     robot.setAllJointCurrentControlMode(id);
     robot.CurrentLimit((float)100, id);
-    for(uint8_t i=0; i<P_MAX_ID; i++)
-    {
-        goal_position[i] = Ftorque[i];
-    }
 
-    robot.setAllCurrents(goal_position, id);
+    cout << "radius : " << robot.radius << endl;
+    cout << "K : " << robot.K << endl;
+
     sleep(1);
 
-    // while(1)
-    // {
-    //     for(uint8_t i=0; i<P_MAX_ID; i++)
-    //     {
-    //         goal_position[i] = Ftorque[i];
-    //         // cout << "goal_position = " << goal_position[i-1] << endl;
-    //         // cout << "a = " << a << endl;
-    //     }
-
-    //     robot.setAllCurrents(goal_position, id);
-
-    //     robot.getAllPositions(present_position, id);
-    //     robot.getAllVelocity(present_velocity, id);
-
-    //     for (uint8_t i = 0; i < P_MAX_ID; i++)
-    //     {
-    //         /* code */
-    //         // cout << "old_position = " << (int)((int)present_position[i-1] + 4096) % 4096 << endl;
-
-    //         present_position[i] =  2048 - (int)((int)present_position[i] + 4096) % 4096; 
-    //         present_velocity[i] *= -1;
-    //         // cout << "present_position = " << present_position[i-1] << endl;
-    //         // present_velocity[i-1] = present_position[i-1] - previous_position[i-1];
-            
-    //         // Ftorque[i] = yamlData.spring_coefficient * present_position[i];
-    //         Ftorque[i] = yamlData.spring_coefficient * present_position[i] - yamlData.damping_coefficient * present_velocity[i];
-    //         // Ftorque[i-1] = u * present_velocity[i-1] - k * present_position[i-1];
-    //         // previous_position[i-1] = present_position[i-1];
-    //         cout << "spring value : " << yamlData.spring_coefficient * present_position[i] << endl;
-    //         printf("[ID:%03d] Present Position : %.3f   Present Velocity : %.3f    Torque : %.3f \t\n", i, present_position[i], present_velocity[i], Ftorque[i]);
-
-    //     }
-    //     printf("----------------------------------------------\n");
-    //     usleep(10000);
-    // }
     while(1)
     {
-        robot.getAllPositions(present_position, id);
-        robot.getAllCurrents(present_current, id);
-        robot.getAllVelocity(present_velocity, id);
-        robot.getAllVoltage(present_voltage, id);
-        robot.getAllTemperatures(present_temperature, id);
+        robot.getAllPositions(robot.feedback_position, id);
+        robot.getAllCurrents(robot.feedback_current, id);
+        // robot.getAllVelocity(robot.feedback_velocity, id);
 
-        for(uint8_t i=0; i<P_MAX_ID; i++)
-        {
-            present_position[i] = double((int)((int)present_position[i] + 4096) % 4096)*360/4096;
-            printf("ID[%d]    position:%.3f, current:%.3f,  velocity:%.3f    voltage:%.3f,   temperature:%.3f \n", i, present_position[i],
-                    present_current[i]*3.36, present_velocity[i], present_voltage[i]/10, present_temperature[i]);
-        }
+        robot.unitConversion(180, robot.feedback_position, robot.feedback_current, robot.feedback_velocity);
+        robot.vaamModel(robot.L, robot.radius, robot.K, robot.D, robot.feedback_position, robot.feedback_velocity, robot.feedback_current, robot.goal_current);
 
-        sleep(1);
+        robot.setAllCurrents(robot.goal_current, id);
+        usleep(5000);
         cout << "-------------------------------------"<< endl;
     }
+    robot.set_all_torque_enable(0, id);
+    return 0;
 }
 

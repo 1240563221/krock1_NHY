@@ -2,9 +2,8 @@
 #execution time in [s]
 execution_time: 20
 ###########################General controller configuration
-num_motors: 2
+num_motors: 1
 id_numbers:
-  - 1
   - 2
 ########################CONTROL MODE 0-> position control 1-> torque control
 control_mode: 0
@@ -31,3 +30,17 @@ is_teleop: false
 spring_coefficient: 0.1
 
 damping_coefficient: 0.01
+
+vaam_L: 0
+vaam_radius: 0.05
+
+vaam_K: 140
+vaam_D: 12
+# vaam_K: 110
+# vaam_D: 12
+# vaam_K: 110
+# vaam_D: 6
+# vaam_K: 110
+# vaam_D: 3
+# vaam_K: 110
+# vaam_D: 1.1
