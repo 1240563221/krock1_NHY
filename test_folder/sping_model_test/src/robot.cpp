@@ -565,14 +565,21 @@ void Robot::unitConversion(double goal_position, double *position, double *torqu
     for (int  i = 0; i < motor_nums; i++)
     {
         position[i] = double((int)((int)position[i] + 4096.) % 4096)*360. / 4096.;
-        position[i] = 2*M_PI*(goal_position - position[i])/360.;            //get delta position compare to xd(180)
+        position[i] = 2*M_PI*(goal_position - position[i])/360.;                //get delta position compare to xd(180)
+        if(position[i] < -M_PI)                                                 //make sure that position in range[-pi,pi]
+        {
+            position[i] += 2*M_PI;
+        }
+        else if(position[i] > M_PI)
+        {
+            position[i] -= 2*M_PI;
+        }
         velocity[i] = (position[i] - previous_position[i])/0.05;
         // velocity[i] = 0 - velocity[i]*2.*M_PI/60.;                          //get the rotational velocity(rad/s)
         torque[i] = torque[i]*6.521/1941.;                                     //get the rotational torque(N)
         previous_position[i] = position[i];
         printf("ID[%d]    position:%.3f, velocity:%.3f  torque:%.3f\n", i, position[i], velocity[i],  torque[i]);
     }
-    
 }
 
 //set ddtheta = 0, L = 0, Fce = -Fext*sin(theta)L + r*(2*K*theta*r + 2*D*dtheta*r)
