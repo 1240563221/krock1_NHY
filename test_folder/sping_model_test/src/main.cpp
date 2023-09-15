@@ -132,8 +132,8 @@ public:
 	double m_x;
 	double m_y;
 	double m_z;
-	double m_r;
 
+	double m_r;
 	double m_K;
 	double m_D;
 	double m_ref;
