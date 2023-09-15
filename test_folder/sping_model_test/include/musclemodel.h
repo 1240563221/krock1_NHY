@@ -27,6 +27,7 @@ public:
 	void RKfun(double *y, double *z, double *out_y, int RKfun_index); //y' = z	y'' = 2*r**2*(Ky+Dy')  ---->  z' = 2*r**2*(Ky + Dz)
 	void calculateMuscleOutput(double *inputY, double *inputZ, double *outputY, double *inputTorque, int numbers);
 
+	int getNumber(void);
 
 private:
 

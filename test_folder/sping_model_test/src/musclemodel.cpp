@@ -92,3 +92,8 @@ void Fourth_RK_CLASS::calculateMuscleOutput(double *inputY, double *inputZ, doub
         RKfun(inputY, inputZ, outputY, i);
     }
 }
+
+int Fourth_RK_CLASS::getNumber(void)
+{
+    return m_n;
+}

@@ -437,8 +437,11 @@ void Robot::getAllPositions(double *angles, int *ids)
         cout << packetHandler_->getTxRxResult(dxl_comm_result) << endl;
 
     for (int i = 0; i < motor_nums; i++)
+    {
             angles[i]=groupSyncRead_position->getData(ids[i],
                         P_PRESENT_POSITION, LEN_PRESENT_POSITION);
+            // cout << " data :" << angles[i] << endl;
+    }
 }
 
 // get the current of all servos    unit: 3.36mA
