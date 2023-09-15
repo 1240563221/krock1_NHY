@@ -2,6 +2,7 @@
 #include "yaml-cpp/yaml.h"
 #include <vector>
 #include "robot.h"
+#include <sys/time.h>
 #include <signal.h>
 
 using namespace std;
@@ -132,10 +133,10 @@ public:
 	double m_y;
 	double m_z;
 	double m_r;
+
 	double m_K;
 	double m_D;
-	double m_ref1;
-	double m_ref2;
+	double m_ref;
 	double m_I;
 	double m_m;
 	double m_L;
@@ -150,16 +151,25 @@ public:
 		m_n = n;
 		m_h = h;
 		
-		m_ref1 = -0.0;
-		m_ref2 = -0.0;
+        m_ref = -0.0;
 		m_r = 1;
-		m_K = 20;
-		m_D = 3;
+		m_K = 260;
+		m_D = 0.1;
 		m_L = 1;
 		m_m = 1;
 		m_G = 9.81;
 		m_I = m_m*m_L*m_L;
 		m_torque = 0;
+
+		// m_ref = -0.0;
+		// m_r = 1;
+		// m_K = 20;
+		// m_D = 10;
+		// m_L = 1;
+		// m_m = 1;
+		// m_G = 9.81;
+		// m_I = m_m*m_L*m_L;
+		// m_torque = 0;
 	}
 
 	//y' = z	y'' = 2*r**2*(Ky+Dy')  ---->  z' = 2*r**2*(Ky + Dz)
@@ -167,15 +177,15 @@ public:
 	{
 		return z;
 	}
-
+    
 	double fun_x2(double t, double y, double z)
 	{
 		double T_s1=0, T_s2=0, T_spring=0,D1=0,D2=0,D=0;
-		if (m_ref1 < y)
-            T_s1 = (m_ref1-y)* m_K;
+		if (m_ref < y)
+            T_s1 = (m_ref-y)* m_K;
             
-        if (m_ref2 > y)
-            T_s2 = (m_ref1-y)* m_K;
+        if (m_ref > y)
+            T_s2 = (m_ref-y)* m_K;
         
         T_spring = (T_s1+T_s2)/m_I;
         
@@ -185,18 +195,12 @@ public:
             D2 = -z*m_D;
             
         D = D1+D2/m_I;
-		// return   sin(2*M_PI*t/20) - 2 * m_r*m_r*(m_K*y+m_D*z);
-		return -m_G * (1. / m_L) * sin(y) - m_Fext[0]*0.03  + m_torque/m_I + T_spring + D;
-		// return -9.8*sin(y) - m_D*z;
-	}
+        D = 0;
 
-	// double fun_x2(double t, double y, double z)
-	// {
-	// 	// cout << "t:" << pow( M_E, 2*t)*sin(2*t) << endl;
-	// 	// cout << "y:" << -2*y << endl;
-	// 	// cout << "z:" << 2*z << endl;
-	// 	return  pow( M_E, 2*t)*sin(t)-2*y+2*z;
-	// }
+        // return   T_spring + D;
+        // return  - m_Fext[0]*0.5   + T_spring + D;
+		return -m_G * (1. / m_L) * sin(y-m_ref) - m_Fext[0]*0.03  + m_torque/m_I + T_spring + D;
+	}
 
 	void RKfun(double *input, double *torque)
 	{
@@ -256,7 +260,7 @@ double theta=0;
 int main()
 {
     ReadGlobalConfig();
-    Robot robot(yamlData.num_motors, 57600, id, "/dev/ttyUSB0");
+    Robot robot(yamlData.num_motors, 4000000, id, "/dev/ttyUSB0");
     vaamInit(robot, yamlData);
 
     robot.Anglelimits(0, 4095, id);
@@ -268,25 +272,37 @@ int main()
 
     double phi=0;
     double deltat = 0.02;
+    struct timeval time_old;
+    struct timeval time_new;
+
 
     double state[2]={0.5, 0};
-	Fourth_RK_CLASS frk(0, state[0], state[1], 1, deltat);
+	Fourth_RK_CLASS frk(0, state[0], state[1], 1, 0.043);
 
     sleep(1);
 
     for (int i = 0; i < 5000; i++)
-	{
+	{   
+        gettimeofday(&time_old, NULL);
 		// /* code */
-        robot.getAllCurrents(robot.feedback_current, id);
-        // for (int j = 0; j < P_MAX_ID; j++)
-        // {
-        //     cout << "feedback current: " << robot.feedback_current[j] << endl;
-        //     /* code */
-        // }
+        robot.getAllCurrents(robot.feedback_current, id);       // 11ms? kidding me?
+
+        robot.getAllVelocity(robot.feedback_velocity, id);   //get feedback need more time 
+        robot.getAllPositions(robot.feedback_position, id);
+        gettimeofday(&time_new, NULL);
+        cout << "run times : " << time_new.tv_usec - time_old.tv_usec << " us " << endl;
+
+
+        state[0] = 2*M_PI*((int)(robot.feedback_position[0]+4096)%4096)/4096 - M_PI;
+        state[1] = -robot.feedback_velocity[0]/1000.;
+
+        cout << "current_position : " << state[0] << endl;
+        cout << "current_velocity : " << state[1] << endl;
         
         // cout << 
 		frk.RKfun(state, robot.feedback_current);
 		cout << "theta = " << state[0] << ";     theta'=" << state[1] << endl;
+        cout << "---------------------"  << endl;
 
         for (int j = 0; j < P_MAX_ID; j++)
         {
@@ -294,45 +310,34 @@ int main()
             /* code */
         }
         robot.setAllPositions(robot.goal_position, id);
-        usleep(deltat*1000000);
+        
+        // usleep(deltat*1000000);
+
+        if(i==200)
+        {
+            frk.m_ref=0.5;
+        }
+
+        if(i==400)
+        {
+            frk.m_ref=-0.5;
+        }
+
+        if(i==600)
+        {
+            frk.m_ref=0.5;
+        }
+
+
+        // if(i==2000)
+        // {
+        //     frk.m_ref1=-0.5;
+        //     frk.m_ref2=-0.5;
+        // }
+
 
 	}
 
-    // while(1)
-    // {
-    //     robot.getAllPositions(robot.feedback_position, id);
-    //     robot.getAllCurrents(robot.feedback_current, id);
-
-    //     for (int i = 0; i < P_MAX_ID; i++)
-    //     {
-    //         cout << "position ["<< i << "] = "<< robot.feedback_position[i] << endl;
-    //         // cout << "position ["<< i << "] = "<< robot.feedback_position[i]/4096*2*M_PI << endl;
-    //         cout << "current ["<< i << "] = "<< robot.feedback_current[i] << endl;
-    //         /* code */
-    //     }
-
-    //     phi += 2*M_PI*deltat;
-    //     if(phi > 2*M_PI)
-    //         phi -= 2*M_PI;
-
-    //     for (int i = 0; i < P_MAX_ID; i++)
-    //     {
-    //         robot.goal_position[i] = (M_PI / 4.) * sin(phi) + M_PI;
-    //         cout << "rad_raw_goal_position[" << i << "] = " << robot.goal_position[i] << endl; 
-    //         if(robot.goal_position[i] < 0)          //rad
-    //         {
-    //             robot.goal_position[i] += 2*M_PI;
-    //         } 
-    //         cout << "raw_goal_position[" << i << "] = " << robot.goal_position[i] << endl; 
-    //         //now convert rad to servo coder
-    //         robot.goal_position[i] *= 4096/(2*M_PI); 
-    //         cout << "goal_position[" << i << "] = " << robot.goal_position[i] << endl; 
-    //         /* code */
-    //     }
-    //     robot.setAllPositions(robot.goal_position, id);
-    //     usleep(deltat*1000000);
-    //     cout << "-------------------------------------"<< endl;
-    // }
     robot.set_all_torque_enable(0, id);
     return 0;
 }
