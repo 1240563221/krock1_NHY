@@ -1,0 +1,17 @@
+muscle_K: 
+  -260
+
+muscle_D:
+  -0.1
+
+muscle_M:
+  -1.0
+
+muscle_L:
+  -1.0
+
+muscle_G:
+  -9.81
+
+muscle_refLocation:
+  -0.0

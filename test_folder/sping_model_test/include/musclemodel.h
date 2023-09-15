@@ -5,44 +5,34 @@
 
 typedef struct 
 {
-    double m_x;
-	double m_y;
-	double m_z;
-
-	double m_r;
-	double m_K;
-	double m_D;
-	double m_ref;
-	double m_I;
-	double m_m;
-	double m_L;
-	double m_G;
-	double m_torque;
-    double m_Fext;
+	double K;
+	double D;
+	double refLocation;
+	double I;
+	double m;
+	double L;
+	double G;
 }muscleModelTPDF;
 
 
 class Fourth_RK_CLASS
 {
 public:
-	double m_x;
-	double m_y;
-	double m_z;
-
+	double currentTorque[P_MAX_ID];
     muscleModelTPDF muscleParameters[P_MAX_ID];
 
-	Fourth_RK_CLASS(int n, double h);
-	//y' = z	y'' = 2*r**2*(Ky+Dy')  ---->  z' = 2*r**2*(Ky + Dz)
+	Fourth_RK_CLASS(int n, double h, muscleModelTPDF *param, int index);
 	double fun_z(double t, double y, double z);
-	double Fourth_RK_CLASS::fun_y(double t, double y, double z, int index);
-	void RKfun(double *input, double *torque);
+	double fun_y(double t, double y, double z, int index);
+	void RKfun(double *y, double *z, double *out_y, int RKfun_index); //y' = z	y'' = 2*r**2*(Ky+Dy')  ---->  z' = 2*r**2*(Ky + Dz)
+	void calculateMuscleOutput(double *inputY, double *inputZ, double *outputY, double *inputTorque, int numbers);
+
 
 private:
+
 	double m_h;
 	int m_n;
 
 };
-
-
 
 #endif

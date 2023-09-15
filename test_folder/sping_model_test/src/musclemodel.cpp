@@ -1,10 +1,24 @@
 #include "musclemodel.h"
-
+#include <iostream>
+#include <cmath>
 using namespace std;
 
-Fourth_RK_CLASS::Fourth_RK_CLASS(int n, double h)
-{
 
+Fourth_RK_CLASS::Fourth_RK_CLASS(int n, double h, muscleModelTPDF *param, int index)
+{
+    m_n = n;
+    m_h = h;
+
+    for (int i = 0; i < index; i++)
+    {
+        muscleParameters[i].D = param[i].D;
+        muscleParameters[i].K = param[i].K;
+        muscleParameters[i].m = param[i].m;
+        muscleParameters[i].L = param[i].L;
+        muscleParameters[i].G = param[i].G;
+        muscleParameters[i].refLocation = param[i].refLocation;
+        muscleParameters[i].I = muscleParameters[i].m * muscleParameters[i].L * muscleParameters[i].L;
+    }
 
 }
 
@@ -16,72 +30,65 @@ double Fourth_RK_CLASS::fun_z(double t, double y, double z)
 double Fourth_RK_CLASS::fun_y(double t, double y, double z, int index)
 {
     double T_s1=0, T_s2=0, T_spring=0,D1=0,D2=0,D=0;
-    if (m_ref < y)
-        T_s1 = (m_ref-y)* m_K;
+    if (muscleParameters[index].refLocation < y)
+    {
+        T_s1 = (muscleParameters[index].refLocation-y) * muscleParameters[index].K;
+    }
         
-    if (m_ref > y)
-        T_s2 = (m_ref-y)* m_K;
-    
-    T_spring = (T_s1+T_s2)/m_I;
+    if (muscleParameters[index].refLocation > y)
+    {
+        T_s2 = (muscleParameters[index].refLocation-y) * muscleParameters[index].K;
+    }
+    T_spring = (T_s1+T_s2) / muscleParameters[index].I;
     
     if (z > 0)
-        D1 = -z*m_D;
+    {
+        D1 = -z*muscleParameters[index].D;
+    }
     if (z < 0)
-        D2 = -z*m_D;
-        
-    D = D1+D2/m_I;
-    D = 0;
-
-    // return   T_spring + D;
-    // return  - m_Fext[0]*0.5   + T_spring + D;
-    return -m_G * (1. / m_L) * sin(y-m_ref) - m_Fext[0]*0.03  + T_spring + D;
+    {
+        D2 = -z*muscleParameters[index].D;
+    }  
+    D = (D1 + D2) / muscleParameters[index].I;
+    return -muscleParameters[index].G * (1. / muscleParameters[index].L) * sin(y-muscleParameters[index].refLocation) - currentTorque[index]*0.03  + T_spring + D;
 }
 
-void Fourth_RK_CLASS::RKfun(double *input, double *torque)
+void Fourth_RK_CLASS::RKfun(double *y, double *z, double *out_y, int RKfun_index)
 {
-    for (int i = 0; i < P_MAX_ID; i++)
-    {
-        m_Fext[i] = torque[i];
-        cout << "m_Fext : " << m_Fext[i] << endl;
-    }
-
     double K1y, K2y, K3y, K4y, K1z, K2z, K3z, K4z;
-
     K1y = K2y = K3y = K4y = K1z = K2z = K3z = K4z = 0.0;
 
-    double yn_next = 0.0;
-    double z_next = 0.0;
-    double x,y,z;
-    int n = m_n;
-    while (n)
+    double y_next = y[RKfun_index];
+    double z_next = z[RKfun_index];
+
+    double x_used, y_used, z_used;
+
+    for (int i = 0; i < m_n; i++)
     {
-        x = m_x;
-        y=input[0];
-        z=input[1];
+        x_used = 0;
+        y_used = y_next;
+        z_used = z_next;
 
-        K1z = fun_x1(x, y,  z);
-        K1y = fun_x2(x, y,  z);
+        K1z = fun_z(x_used, y_used,  z_used);
+        K1y = fun_y(x_used, y_used,  z_used, RKfun_index);
+        K2z = fun_z(x_used + m_h/2., y_used + K1z * m_h/2., z_used + K1y * m_h/2.);
+        K2y = fun_y(x_used + m_h/2., y_used + K1z * m_h/2., z_used + K1y * m_h/2., RKfun_index);
+        K3z = fun_z(x_used + m_h/2., y_used + K2z * m_h/2., z_used + K2y * m_h/2.);
+        K3y = fun_y(x_used + m_h/2., y_used + K2z * m_h/2., z_used + K2y * m_h/2., RKfun_index);
+        K4z = fun_z(x_used + m_h, y_used + K3z * m_h, z_used + K3y * m_h);
+        K4y = fun_y(x_used + m_h, y_used + K3z * m_h, z_used + K3y * m_h, RKfun_index);
 
-        K2z = fun_x1(x + m_h/2., y + K1z * m_h/2., z + K1y * m_h/2.);
-        K2y = fun_x2(x + m_h/2., y + K1z * m_h/2., z + K1y * m_h/2.);
+        y_next = y_used + m_h/6.0 * (K1z + 2*K2z + 2*K3z + K4z);
+        z_next = z_used + m_h/6.0 * (K1y + 2*K2y + 2*K3y + K4y);    
+    }
+    out_y[RKfun_index] = y_next;
+}
 
-        K3z = fun_x1(x + m_h/2., y + K2z * m_h/2., z + K2y * m_h/2.);
-        K3y = fun_x2(x + m_h/2., y + K2z * m_h/2., z + K2y * m_h/2.);
-
-        K4z = fun_x1(x + m_h, y + K3z * m_h, z + K3y * m_h);
-        K4y = fun_x2(x + m_h, y + K3z * m_h, z + K3y * m_h);
-
-        yn_next = y + m_h/6.0 * (K1z + 2*K2z + 2*K3z + K4z);
-        z_next = z + m_h/6.0 * (K1y + 2*K2y + 2*K3y + K4y);
-
-        // cout << "n = " << this->m_n - n + 1 << "时：  " << "yn = " << setprecision(5)<<yn_next<< 
-        // 		"   yn' = "<< z_next << endl;
-        m_x += m_h;
-        m_y = yn_next;
-        m_z = z_next;
-        input[0] = m_y;
-        input[1] = m_z;
-        n--;
-
+void Fourth_RK_CLASS::calculateMuscleOutput(double *inputY, double *inputZ, double *outputY, double *inputTorque, int numbers)
+{
+    for (int  i = 0; i < numbers; i++)
+    {
+        currentTorque[i] = inputTorque[i];
+        RKfun(inputY, inputZ, outputY, i);
     }
 }
