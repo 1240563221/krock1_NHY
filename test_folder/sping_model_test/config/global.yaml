@@ -2,9 +2,10 @@
 #execution time in [s]
 execution_time: 20
 ###########################General controller configuration
-num_motors: 1
+num_motors: 2
 id_numbers:
   - 2
+  - 1
 ########################CONTROL MODE 0-> position control 1-> torque control
 control_mode: 0
 ###########################POSITION CONTROL VARIABLES

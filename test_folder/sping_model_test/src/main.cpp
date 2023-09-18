@@ -196,6 +196,18 @@ int main()
             robot.goal_position[j] = (robot.goal_position[j] + M_PI)*4096/(2*M_PI);
             /* code */
         }
+        for (int j = 0; j < P_MAX_ID; j++)
+        {
+            if (robot.goal_position[j] < 0 || robot.goal_position[j] > 4096)
+            {
+                cout << "ID[" << id[j] << "]  calculate error!  goal position is " << robot.goal_position[j] << endl;
+                
+                /* code */
+            }
+            
+            /* code */
+        }
+        
         cout << "---------------------"  << endl;
         robot.setAllPositions(robot.goal_position, id);
 

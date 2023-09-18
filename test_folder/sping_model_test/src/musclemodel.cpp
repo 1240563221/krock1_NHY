@@ -18,12 +18,6 @@ Fourth_RK_CLASS::Fourth_RK_CLASS(int n, double h, muscleModelTPDF *param, int in
         muscleParameters[i].G = param[i].G;
         muscleParameters[i].refLocation = param[i].refLocation;
         muscleParameters[i].I = muscleParameters[i].m * muscleParameters[i].L * muscleParameters[i].L;
-
-        // cout << "K : " << param[i].K << endl;
-        // cout << "D : " << param[i].D << endl;
-        // cout << "m : " << param[i].m << endl;
-        // cout << "L : " << param[i].L << endl;
-        // cout << "I : " << param[i].I << endl;
     }
 
 }
@@ -88,6 +82,18 @@ void Fourth_RK_CLASS::RKfun(double *y, double *z, double *out_y, int RKfun_index
         z_next = z_used + m_h/6.0 * (K1y + 2*K2y + 2*K3y + K4y);    
     }
     out_y[RKfun_index] = y_next;
+    if(y_next > 2*M_PI)
+    {
+        cout << "K1z : " << K1z << endl;
+        cout << "K1y : " << K1y << endl;
+        cout << "K2z : " << K2z << endl;
+        cout << "K2y : " << K2y << endl;
+        cout << "K3z : " << K3z << endl;
+        cout << "K3y : " << K3y << endl;
+        cout << "K4z : " << K1z << endl;
+        cout << "K1z : " << K1z << endl;
+
+    }
 }
 
 void Fourth_RK_CLASS::calculateMuscleOutput(double *inputY, double *inputZ, double *outputY, double *inputTorque, int numbers)
