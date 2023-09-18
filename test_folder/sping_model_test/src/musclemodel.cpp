@@ -18,6 +18,12 @@ Fourth_RK_CLASS::Fourth_RK_CLASS(int n, double h, muscleModelTPDF *param, int in
         muscleParameters[i].G = param[i].G;
         muscleParameters[i].refLocation = param[i].refLocation;
         muscleParameters[i].I = muscleParameters[i].m * muscleParameters[i].L * muscleParameters[i].L;
+
+        // cout << "K : " << param[i].K << endl;
+        // cout << "D : " << param[i].D << endl;
+        // cout << "m : " << param[i].m << endl;
+        // cout << "L : " << param[i].L << endl;
+        // cout << "I : " << param[i].I << endl;
     }
 
 }

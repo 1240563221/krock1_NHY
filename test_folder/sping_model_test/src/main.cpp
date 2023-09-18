@@ -101,19 +101,19 @@ int ReadGlobalConfig()
     return 1;
 }
 
-// void readMuscleParameters(void)
-// {
-//     YAML::Node muscleConfig = YAML::LoadFile("../config/muscle.yaml");
-//     for (int i = 0; i < P_MAX_ID; i++)
-//     {
-//         muscleRead[i].K = muscleConfig["muscle_K"][i].as<double>();
-//         muscleRead[i].D = muscleConfig["muscle_D"][i].as<double>();
-//         muscleRead[i].m = muscleConfig["muscle_M"][i].as<double>();
-//         muscleRead[i].L = muscleConfig["muscle_L"][i].as<double>();
-//         muscleRead[i].G = muscleConfig["muscle_G"][i].as<double>();
-//         muscleRead[i].refLocation = muscleConfig["muscle_refLocation"][i].as<double>();
-//     }
-// }
+void readMuscleParameters(void)
+{
+    YAML::Node muscleConfig = YAML::LoadFile("../config/muscle.yaml");
+    for (int i = 0; i < P_MAX_ID; i++)
+    {
+        muscleRead[i].K = muscleConfig["muscle_K"][i].as<double>();
+        muscleRead[i].D = muscleConfig["muscle_D"][i].as<double>();
+        muscleRead[i].m = muscleConfig["muscle_M"][i].as<double>();
+        muscleRead[i].L = muscleConfig["muscle_L"][i].as<double>();
+        muscleRead[i].G = muscleConfig["muscle_G"][i].as<double>();
+        muscleRead[i].refLocation = muscleConfig["muscle_refLocation"][i].as<double>();
+    }
+}
 
 typedef struct
 {
@@ -149,7 +149,7 @@ double theta=0;
 int main()
 {
     ReadGlobalConfig();
-    // readMuscleParameters();
+    readMuscleParameters();
     Robot robot(yamlData.num_motors, 57600, id, "/dev/ttyUSB0");
     vaamInit(robot, yamlData);
 
@@ -165,13 +165,6 @@ int main()
     struct timeval time_new;
 
 	Fourth_RK_CLASS admittanceControl(1, 0.043, muscleRead, P_MAX_ID);
-    cout << "n : " << admittanceControl.getNumber() << endl;
-    cout << "K : " << admittanceControl.muscleParameters[0].K << endl;
-    cout << "D : " << admittanceControl.muscleParameters[0].D << endl;
-    cout << "m : " << admittanceControl.muscleParameters[0].m << endl;
-    cout << "L : " << admittanceControl.muscleParameters[0].L << endl;
-    cout << "I : " << admittanceControl.muscleParameters[0].I << endl;
-    cout << "refLocation : " << admittanceControl.muscleParameters[0].refLocation << endl;
 
     sleep(1);
 
@@ -187,21 +180,15 @@ int main()
 
         for (int j = 0; j < P_MAX_ID; j++)
         {
-            // cout << "raw_position : " << robot.feedback_position[j] << endl;
-            // cout << "raw_velocity : " << robot.feedback_velocity[j] << endl;
-            // current_p[j] = 2*M_PI*((int)(robot.feedback_position[j]+4096)%4096)/4096 - M_PI;
-            // current_v[j] = -robot.feedback_velocity[i]/1000.;
-            // cout << "current_position : " << robot.feedback_position[j] << endl;
-            // cout << "current_velocity : " << robot.feedback_velocity[j] << endl;
             cout << "raw_position : " << robot.feedback_position[j] << endl;
             cout << "raw_velocity : " << robot.feedback_velocity[j] << endl;
-            current_p[j] = 2*M_PI*((int)(robot.feedback_position[j]+4096)%4096)/4096 - M_PI;
-            current_v[j] = -robot.feedback_velocity[i]/1000.;
+            robot.feedback_position[j] = 2*M_PI*((int)(robot.feedback_position[j]+4096)%4096)/4096 - M_PI;
+            robot.feedback_velocity[j] = -robot.feedback_velocity[i]/1000.;
             cout << "current_position : " << current_p[j] << endl;
             cout << "current_velocity : " << current_v[j] << endl;
         }
         
-        admittanceControl.calculateMuscleOutput(current_p, current_v, goal_p , robot.feedback_current, P_MAX_ID);
+        admittanceControl.calculateMuscleOutput(robot.feedback_position, robot.feedback_velocity, robot.goal_position , robot.feedback_current, P_MAX_ID);
 
         for (int j = 0; j < P_MAX_ID; j++)
         {
@@ -210,7 +197,7 @@ int main()
             /* code */
         }
         cout << "---------------------"  << endl;
-        // robot.setAllPositions(robot.goal_position, id);
+        robot.setAllPositions(robot.goal_position, id);
 
 
 	}
