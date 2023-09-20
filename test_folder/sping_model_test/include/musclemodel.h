@@ -3,6 +3,11 @@
 
 #include "control_table_constants.hpp"
 
+#define TORQUE_COEFFICIENT 			0.03
+#define MAX_LIMIT_POSITION_SERVO 	4095
+#define TIME_INTERVAL				0.047
+
+
 typedef struct 
 {
 	double K;
@@ -15,25 +20,31 @@ typedef struct
 }muscleModelTPDF;
 
 
-class Fourth_RK_CLASS
+class VAAM_Model_CLASS
 {
 public:
-	double currentTorque[P_MAX_ID];
-    muscleModelTPDF muscleParameters[P_MAX_ID];
-
-	Fourth_RK_CLASS(int n, double h, muscleModelTPDF *param, int index);
+	VAAM_Model_CLASS( double h, muscleModelTPDF param);
 	double fun_z(double t, double y, double z);
-	double fun_y(double t, double y, double z, int index);
-	void RKfun(double *y, double *z, double *out_y, int RKfun_index); //y' = z	y'' = 2*r**2*(Ky+Dy')  ---->  z' = 2*r**2*(Ky + Dz)
-	void calculateMuscleOutput(double *inputY, double *inputZ, double *outputY, double *inputTorque, int numbers);
+	double fun_y(double t, double y, double z);
+	void RKfun(double y, double z, double *out_y, double inputTorque); //y' = z	y'' = 2*r**2*(Ky+Dy')  ---->  z' = 2*r**2*(Ky + Dz)
 
+	// get parameters
 	int getNumber(void);
+	double getCalculateStride(void);
+	double getGoalPosition(void);
+
+	//set parameters
+	void setTorque(double extTorque);
+	void setCalculateStride(double timeInterval);
+	void setGoalPosition(double goalPosition);
+
+	void showMuscleParameters(void);
 
 private:
-
-	double m_h;
 	int m_n;
-
+	double m_h;
+	double currentTorque;
+	muscleModelTPDF muscleParameters;
 };
 
 #endif

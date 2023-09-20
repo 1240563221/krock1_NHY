@@ -1,15 +1,13 @@
 /*****************************************************************************
-* Project: AgnathaX robot
-* Copyright 2021-2023 Laura Paez Coy and Kamilo Melo
-* This code is under MIT licence: https://opensource.org/licenses/MIT
-* Laura.Paez@KM-RoBota.com, 04-2023
-* Kamilo.Melo@KM-RoBota.com, 05-2023
+* Project: Krock robot
+* chen chen
 *****************************************************************************/
 
 #include "robot.h"
 #include <bitset>
 #include <cstring>
 #include <math.h>
+#include "utils.hpp"
 
 using namespace std;
 
@@ -70,8 +68,8 @@ Robot::Robot(int num_Motors,int baudrate, int *ID_numbers, const char *portName)
     groupSyncRead_temperature = new dynamixel::GroupSyncRead(portHandler_, packetHandler_,
                                 (uint16_t)P_PRESENT_TEMPERATURE, (uint16_t)LEN_PRESENT_TEMPERATURE);
                                 
-    // groupSyncRead_position_current_voltage = new dynamixel::GroupBulkRead(portHandler_, packetHandler_,
-    //                             (uint16_t)ADDR_INDIRECT_DATA_FOR_READ, (uint16_t)LEN_INDIRECTDATA_FOR_READ);
+    groupSyncRead_current_velocity_position = new dynamixel::GroupSyncRead(portHandler_, packetHandler_,
+                                (uint16_t)ADDR_INDIRECT_DATA_FOR_READ, (uint16_t)LEN_INDIRECTDATA_FOR_READ);
 
     //ping each motor to validate the communication is working
     uint8_t dxl_error = 0;                          // Dynamixel error
@@ -104,13 +102,13 @@ Robot::Robot(int num_Motors,int baudrate, int *ID_numbers, const char *portName)
     // Add parameter storage for SYNC indirect reading in this part to save time by only doing it only once 
     // as we're not going to actively change the ID to read, it's better to do it in this way
     //reading variables: position, current and voltage
-    // Assign_read_indirect_adress(ADDR_INDIRECT_ADDRESS_FOR_READ, ID_numbers);
+    Assign_read_indirect_adress(ADDR_INDIRECT_ADDRESS_FOR_READ, ID_numbers);
 
     //INITIALIZE POSTURE:
     /* Initialize center values of servos -> used for the initial posture of the robot*/
     pos_center = new double[motor_nums];
     for (int i = 0; i < motor_nums; i++)
-        pos_center[i] = 3048;  
+        pos_center[i] = 0;  
     SetInitialPosture(ID_numbers); 
 }
 
@@ -257,6 +255,41 @@ bool Robot::readRegister(uint8_t id, uint16_t address, uint16_t length, int32_t 
     return false;
 }
 
+
+// get multiple variables simultaneously
+void Robot::Assign_read_indirect_adress(int start_ind_adress_write, int *ids)
+{
+    bool dxl_addparam_result = false;    
+
+    for (int i = 0; i < motor_nums; i++) {
+        torque_enable(0, ids[i]); //torque OFF
+
+        //read current
+        writeRegister(ids[i], start_ind_adress_write + 0 + 0, 2, P_PRESENT_CURRENT + 0);
+        writeRegister(ids[i], start_ind_adress_write + 0 + 2, 2, P_PRESENT_CURRENT + 1);
+
+        //read voltage
+        writeRegister(ids[i], start_ind_adress_write + 4 + 0, 2, P_PRESENT_VELOCITY + 0);
+        writeRegister(ids[i], start_ind_adress_write + 4 + 2, 2, P_PRESENT_VELOCITY + 1);
+        writeRegister(ids[i], start_ind_adress_write + 4 + 4, 2, P_PRESENT_VELOCITY + 2);
+        writeRegister(ids[i], start_ind_adress_write + 4 + 6, 2, P_PRESENT_VELOCITY + 3);
+        
+        //read position
+        writeRegister(ids[i], start_ind_adress_write + 12 + 0, 2, P_PRESENT_POSITION + 0);
+        writeRegister(ids[i], start_ind_adress_write + 12 + 2, 2, P_PRESENT_POSITION + 1);
+        writeRegister(ids[i], start_ind_adress_write + 12 + 4, 2, P_PRESENT_POSITION + 2);
+        writeRegister(ids[i], start_ind_adress_write + 12 + 6, 2, P_PRESENT_POSITION + 3);
+
+        torque_enable(1, ids[i]); //torque ON
+        dxl_addparam_result = groupSyncRead_current_velocity_position->addParam(ids[i]);
+        if (dxl_addparam_result != true) {
+            cout << "groupSyncRead_current_velocity_position addparam failed ID = " << ids[i] << endl;
+            return;
+        }  
+    }
+}
+
+
 // /* joint mode functions*/
 
 // set the motors in comprehensive joint mode
@@ -310,8 +343,8 @@ void Robot::setAllPositions(double *angles, int *ids)
 
     for (int i=0; i<motor_nums; i++) {
         //convert from Radians to motor value
-        // goalPosition = (angle2Position(angles[i], scanned_model[i], true));//true->angle in radians
-        goalPosition = angles[i];//true->angle in radians
+        goalPosition = (angle2Position(angles[i], scanned_model[i], true));//true->angle in radians
+        // goalPosition = angles[i];//true->angle in radians
         getParameter(goalPosition, param_goal_position, LEN_GOAL_POSITION);
         // cout << "ID = " << ids[i] << endl;
         // cout << "position = " << angles[i] << endl;
@@ -357,11 +390,11 @@ void Robot::setAllCurrents(double *currents, int *ids) //current unit [ticks]
 void Robot::SetInitialPosture( int *ids)
 {
     //changes goal velocity. 2nd argument in jointMode is speed 0->fast 50->example of slow value
-    jointMode(ids, 50, 0);
+    jointMode(ids, 50, 80);
 
     //takes the robot to the initial position, using previous set speed
     setAllPositions(pos_center, ids);
-    sleep(1);
+    sleep(2);
 
     // //comes back to fast speed
     jointMode(ids, 0, 0);
@@ -440,6 +473,7 @@ void Robot::getAllPositions(double *angles, int *ids)
     {
             angles[i]=groupSyncRead_position->getData(ids[i],
                         P_PRESENT_POSITION, LEN_PRESENT_POSITION);
+            angles[i] = position2Angle(angles[i], scanned_model[i], true);
             // cout << " data :" << angles[i] << endl;
     }
 }
@@ -472,6 +506,8 @@ void Robot::getAllCurrents(double *currents, int *ids)
         currents[i] = double(temp_data);
     }
 }
+
+
 
 
 // get the input voltage of all servos  -- unit: 0.1V
@@ -529,7 +565,7 @@ void Robot::getAllVelocity(double *velocity, int *ids)
 
         temp_data = groupSyncRead_velocity->getData(ids[i],
                         (uint16_t)P_PRESENT_VELOCITY, (uint16_t)LEN_PRESENT_VELOCITY);
-        velocity[i] = (double)temp_data;
+        velocity[i] = (double)temp_data/1000;
     }
 }
 
@@ -561,42 +597,51 @@ void Robot::getAllTemperatures(double *temperatures, int *ids)
 }
 
 
-//
-void Robot::unitConversion(double goal_position, double *position, double *torque, double *velocity)
+// get the current,velocity and position of all servos   
+void Robot::getAllCurrentsVelocityPosition(double *currents, double *velocity, double *position, int *ids)
 {
-    static double previous_position[P_MAX_ID]={0};
-    for (int  i = 0; i < motor_nums; i++)
-    {
-        position[i] = double((int)((int)position[i] + 4096.) % 4096)*360. / 4096.;
-        position[i] = 2*M_PI*(goal_position - position[i])/360.;                //get delta position compare to xd(180)
-        if(position[i] < -M_PI)                                                 //make sure that position in range[-pi,pi]
-        {
-            position[i] += 2*M_PI;
-        }
-        else if(position[i] > M_PI)
-        {
-            position[i] -= 2*M_PI;
-        }
-        velocity[i] = (position[i] - previous_position[i])/0.05;
-        // velocity[i] = 0 - velocity[i]*2.*M_PI/60.;                          //get the rotational velocity(rad/s)
-        torque[i] = torque[i]*6.521/1941.;                                     //get the rotational torque(N)
-        previous_position[i] = position[i];
-        printf("ID[%d]    position:%.3f, velocity:%.3f  torque:%.3f\n", i, position[i], velocity[i],  torque[i]);
-    }
-}
+    int dxl_comm_result = COMM_TX_FAIL;               // Communication result
+    bool dxl_addparam_result = false;                 // addParam result
+    bool dxl_getdata_result = false;                  // getParam result
+    int16_t temp_data=0;
 
-//set ddtheta = 0, L = 0, Fce = -Fext*sin(theta)L + r*(2*K*theta*r + 2*D*dtheta*r)
-void Robot::vaamModel(double L, double r, double K, double D, double *theta, double *dtheta, double *Fext, double *F)
-{
+    // Syncread present current,velocity, position
+    dxl_comm_result = groupSyncRead_current_velocity_position->txRxPacket();
+
+    if (dxl_comm_result != COMM_SUCCESS)
+        cout << packetHandler_->getTxRxResult(dxl_comm_result) << endl;
+
     for (int i = 0; i < motor_nums; i++)
     {
-        F[i] = r*2*r*(K*theta[i]+D*dtheta[i]) - Fext[i]*sin(theta[i])*L;
+        dxl_getdata_result = groupSyncRead_current_velocity_position->isAvailable(ids[i], ADDR_INDIRECT_DATA_FOR_READ + 0, LEN_PRESENT_CURRENT);
+        if (dxl_getdata_result != true)
+        {
+            fprintf(stderr, "[ID:%03d] groupSyncRead getdata failed", ids[i]);
+        }
 
-        cout << "Fext = " << Fext[i]*sin(theta[0])*L << endl;
-        cout << "Fpe = " << r*2*r*(K*theta[i]+D*dtheta[i]) << 
-                " Fk = "<< 2*r*K*theta[i]*r << "  Fd =  "<< 2*r*D*dtheta[i]*r <<endl;
-        cout << "F = " << F[i] << endl;
-        F[i] *= 1941/6; 
-        cout << "Fout = " << F[i] << endl;
+        dxl_getdata_result = groupSyncRead_current_velocity_position->isAvailable(ids[i], ADDR_INDIRECT_DATA_FOR_READ + LEN_PRESENT_CURRENT, LEN_PRESENT_VELOCITY);
+        if (dxl_getdata_result != true)
+        {
+            fprintf(stderr, "[ID:%03d] groupSyncRead getdata failed", ids[i]);
+        }
+
+        dxl_getdata_result = groupSyncRead_current_velocity_position->isAvailable(ids[i], ADDR_INDIRECT_DATA_FOR_READ + LEN_PRESENT_CURRENT + LEN_PRESENT_VELOCITY, LEN_PRESENT_POSITION);
+        if (dxl_getdata_result != true)
+        {
+            fprintf(stderr, "[ID:%03d] groupSyncRead getdata failed", ids[i]);
+        }
+
+        temp_data = groupSyncRead_current_velocity_position->getData(ids[i], ADDR_INDIRECT_DATA_FOR_READ + 0, LEN_PRESENT_CURRENT);
+        currents[i] = (double)temp_data;
+
+        temp_data = groupSyncRead_current_velocity_position->getData(ids[i], ADDR_INDIRECT_DATA_FOR_READ + LEN_PRESENT_CURRENT, LEN_PRESENT_VELOCITY);
+        velocity[i] = (double)temp_data/1000;
+
+        position[i] = groupSyncRead_current_velocity_position->getData(ids[i], ADDR_INDIRECT_DATA_FOR_READ + LEN_PRESENT_CURRENT + LEN_PRESENT_VELOCITY, LEN_PRESENT_POSITION);
+        position[i] = position2Angle(position[i], scanned_model[i], true);
+        // cout << " current data :" << temp_data << endl;
+        // cout << " velocity data :" << temp_data << endl;
+        // cout << " position data :" << position[i] << endl;
+        
     }
 }

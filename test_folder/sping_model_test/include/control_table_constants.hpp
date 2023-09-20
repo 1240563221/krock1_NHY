@@ -1,8 +1,8 @@
 /*****************************************************************************
-* Project: AgnathaX robot
-* Copyright 2021-2023 Laura Paez Coy and Kamilo Melo
+* Project: Krock Demo robot
+* Copyright 2023- Chen Chen
 * This code is under MIT licence: https://opensource.org/licenses/MIT
-* Laura.Paez@KM-RoBota.com, 04-2023
+* Chen Chen
 * Kamilo.Melo@KM-RoBota.com, 05-2023
 *****************************************************************************/
 
@@ -15,8 +15,12 @@
 // #define CURRENT_LIMIT                   1024
 
 
-#define M_PI                        3.1415926
-#define P_MAX_ID                    2
+#define P_BAUDRATE                  1000000
+#define P_MAX_ID                    4
+
+#define ADDR_INDIRECT_ADDRESS_FOR_READ       168
+#define ADDR_INDIRECT_DATA_FOR_READ          224
+#define LEN_INDIRECTDATA_FOR_READ             10
 
 
 #if PROTOCOL_VERSION == 2

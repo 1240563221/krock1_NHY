@@ -4,64 +4,44 @@
 using namespace std;
 
 
-Fourth_RK_CLASS::Fourth_RK_CLASS(int n, double h, muscleModelTPDF *param, int index)
+VAAM_Model_CLASS::VAAM_Model_CLASS( double h, muscleModelTPDF param)
 {
-    m_n = n;
+    m_n = 1;
     m_h = h;
 
-    for (int i = 0; i < index; i++)
-    {
-        muscleParameters[i].D = param[i].D;
-        muscleParameters[i].K = param[i].K;
-        muscleParameters[i].m = param[i].m;
-        muscleParameters[i].L = param[i].L;
-        muscleParameters[i].G = param[i].G;
-        muscleParameters[i].refLocation = param[i].refLocation;
-        muscleParameters[i].I = muscleParameters[i].m * muscleParameters[i].L * muscleParameters[i].L;
-    }
-
+    muscleParameters.D = param.D;
+    muscleParameters.K = param.K;
+    muscleParameters.m = param.m;
+    muscleParameters.L = param.L;
+    muscleParameters.G = param.G;
+    muscleParameters.refLocation = param.refLocation;
+    muscleParameters.I = muscleParameters.m * muscleParameters.L * muscleParameters.L;
 }
 
-double Fourth_RK_CLASS::fun_z(double t, double y, double z)
+double VAAM_Model_CLASS::fun_z(double t, double y, double z)
 {
     return z;
 }
 
-double Fourth_RK_CLASS::fun_y(double t, double y, double z, int index)
+double VAAM_Model_CLASS::fun_y(double t, double y, double z)
 {
-    double T_s1=0, T_s2=0, T_spring=0,D1=0,D2=0,D=0;
-    if (muscleParameters[index].refLocation < y)
-    {
-        T_s1 = (muscleParameters[index].refLocation-y) * muscleParameters[index].K;
-    }
-        
-    if (muscleParameters[index].refLocation > y)
-    {
-        T_s2 = (muscleParameters[index].refLocation-y) * muscleParameters[index].K;
-    }
-    T_spring = (T_s1+T_s2) / muscleParameters[index].I;
-    
-    if (z > 0)
-    {
-        D1 = -z*muscleParameters[index].D;
-    }
-    if (z < 0)
-    {
-        D2 = -z*muscleParameters[index].D;
-    }  
-    D = (D1 + D2) / muscleParameters[index].I;
-    return -muscleParameters[index].G * (1. / muscleParameters[index].L) * sin(y-muscleParameters[index].refLocation) - currentTorque[index]*0.03  + T_spring + D;
+    double T_k, T_d;
+    T_k = (muscleParameters.refLocation-y) * muscleParameters.K / muscleParameters.I;
+    T_d = -z*muscleParameters.D / muscleParameters.I;
+
+    return -muscleParameters.G * (1. / muscleParameters.L) * sin(y-muscleParameters.refLocation) - currentTorque  + T_k + T_d;
 }
 
-void Fourth_RK_CLASS::RKfun(double *y, double *z, double *out_y, int RKfun_index)
+void VAAM_Model_CLASS::RKfun(double y, double z, double *out_y, double inputTorque)
 {
     double K1y, K2y, K3y, K4y, K1z, K2z, K3z, K4z;
-    K1y = K2y = K3y = K4y = K1z = K2z = K3z = K4z = 0.0;
 
-    double y_next = y[RKfun_index];
-    double z_next = z[RKfun_index];
+    double y_next = y;
+    double z_next = z;
 
     double x_used, y_used, z_used;
+    
+    setTorque(inputTorque);
 
     for (int i = 0; i < m_n; i++)
     {
@@ -70,42 +50,58 @@ void Fourth_RK_CLASS::RKfun(double *y, double *z, double *out_y, int RKfun_index
         z_used = z_next;
 
         K1z = fun_z(x_used, y_used,  z_used);
-        K1y = fun_y(x_used, y_used,  z_used, RKfun_index);
+        K1y = fun_y(x_used, y_used,  z_used);
         K2z = fun_z(x_used + m_h/2., y_used + K1z * m_h/2., z_used + K1y * m_h/2.);
-        K2y = fun_y(x_used + m_h/2., y_used + K1z * m_h/2., z_used + K1y * m_h/2., RKfun_index);
+        K2y = fun_y(x_used + m_h/2., y_used + K1z * m_h/2., z_used + K1y * m_h/2.);
         K3z = fun_z(x_used + m_h/2., y_used + K2z * m_h/2., z_used + K2y * m_h/2.);
-        K3y = fun_y(x_used + m_h/2., y_used + K2z * m_h/2., z_used + K2y * m_h/2., RKfun_index);
+        K3y = fun_y(x_used + m_h/2., y_used + K2z * m_h/2., z_used + K2y * m_h/2.);
         K4z = fun_z(x_used + m_h, y_used + K3z * m_h, z_used + K3y * m_h);
-        K4y = fun_y(x_used + m_h, y_used + K3z * m_h, z_used + K3y * m_h, RKfun_index);
+        K4y = fun_y(x_used + m_h, y_used + K3z * m_h, z_used + K3y * m_h);
 
         y_next = y_used + m_h/6.0 * (K1z + 2*K2z + 2*K3z + K4z);
         z_next = z_used + m_h/6.0 * (K1y + 2*K2y + 2*K3y + K4y);    
     }
-    out_y[RKfun_index] = y_next;
-    if(y_next > 2*M_PI)
-    {
-        cout << "K1z : " << K1z << endl;
-        cout << "K1y : " << K1y << endl;
-        cout << "K2z : " << K2z << endl;
-        cout << "K2y : " << K2y << endl;
-        cout << "K3z : " << K3z << endl;
-        cout << "K3y : " << K3y << endl;
-        cout << "K4z : " << K1z << endl;
-        cout << "K1z : " << K1z << endl;
-
-    }
+    *out_y = y_next;
 }
 
-void Fourth_RK_CLASS::calculateMuscleOutput(double *inputY, double *inputZ, double *outputY, double *inputTorque, int numbers)
-{
-    for (int  i = 0; i < numbers; i++)
-    {
-        currentTorque[i] = inputTorque[i];
-        RKfun(inputY, inputZ, outputY, i);
-    }
-}
 
-int Fourth_RK_CLASS::getNumber(void)
+int VAAM_Model_CLASS::getNumber(void)
 {
     return m_n;
+}
+
+double VAAM_Model_CLASS::getCalculateStride(void)
+{
+    return m_h;
+}
+
+double VAAM_Model_CLASS::getGoalPosition(void)
+{
+    return muscleParameters.refLocation;
+}
+
+void VAAM_Model_CLASS::setTorque(double extTorque)
+{
+    currentTorque = extTorque * TORQUE_COEFFICIENT;
+}
+
+void VAAM_Model_CLASS::setCalculateStride(double timeInterval)
+{
+    m_h = timeInterval;
+}
+
+void VAAM_Model_CLASS::setGoalPosition(double goalPosition)
+{
+    muscleParameters.refLocation = goalPosition;
+}
+
+void VAAM_Model_CLASS::showMuscleParameters(void)
+{
+    cout << "muscle_K" << muscleParameters.K << endl;
+    cout << "muscle_D" << muscleParameters.D << endl;
+    cout << "muscle_m" << muscleParameters.m << endl;
+    cout << "muscle_L" << muscleParameters.L << endl;
+    cout << "muscle_I" << muscleParameters.I << endl;
+    cout << "muscle_G" << muscleParameters.G << endl;
+    cout << "muscle_refLocation" << muscleParameters.refLocation << endl;
 }
