@@ -1,0 +1,62 @@
+# /** 
+# * @file [muscle.yaml]
+# * @brief this is a configuration
+# * @author <chen chen>
+# * @date <2023.9.21>
+# * @version <V1.0>
+# *
+# * detailed description for the file.
+# */
+
+
+#the numbers of motor
+num_motors: 4
+
+#the index of the corresponding motor
+id_numbers:
+  - 1
+  - 2
+  - 3
+  - 4
+  
+#the stiffness of the corresponding virtual muscle model  
+muscle_K: 
+  - 260
+  - 250
+  - 200
+  - 150
+
+#the damping of the corresponding virtual muscle model 
+muscle_D:
+  - 0.1
+  - 0.1
+  - 0.1
+  - 0.1
+
+#the mass of the corresponding virtual muscle model
+muscle_M:
+  - 1.0
+  - 1.0
+  - 1.0
+  - 1.0
+
+#the length of the arm of force
+muscle_L:
+  - 1.0
+  - 1.0
+  - 1.0
+  - 1.0
+
+#the acceleration of gravity for corresponding virtual muscle model
+muscle_G:
+  - 9.81
+  - 9.81
+  - 9.81
+  - 9.81
+
+#the reference location of corresponding virtual muscle model
+muscle_refLocation:
+  - 0.0
+  - 0.0
+  - 0.0
+  - 0.0

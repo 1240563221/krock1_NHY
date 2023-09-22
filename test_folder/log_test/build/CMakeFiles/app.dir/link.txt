@@ -1,0 +1,1 @@
+/usr/bin/c++     CMakeFiles/app.dir/main.cpp.o CMakeFiles/app.dir/log/FileOperator.cpp.o CMakeFiles/app.dir/log/Log.cpp.o  -o app 

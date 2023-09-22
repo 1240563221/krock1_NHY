@@ -4,7 +4,9 @@ project(yaml_test_project)
 
 # set(SRC ${CMAKE_CURRENT_SOURCE_DIR}/src/.cpp)
 aux_source_directory(${CMAKE_CURRENT_SOURCE_DIR}/src SRC)
-aux_source_directory(${CMAKE_CURRENT_SOURCE_DIR}/utils SRC1)
+aux_source_directory(${CMAKE_CURRENT_SOURCE_DIR}/utils/utils SRC1)
+set(SRC ${SRC} ${SRC1})
+aux_source_directory(${CMAKE_CURRENT_SOURCE_DIR}/utils/log SRC1)
 set(SRC ${SRC} ${SRC1})
 
 
@@ -12,7 +14,9 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include/)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR})
 include_directories(/usr/local/include/dynamixel_sdk)
 include_directories(/usr/local/include/yaml-cpp/)
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/utils/)
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/utils/utils)
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/utils/log)
+
 link_directories(${CMAKE_CURRENT_SOURCE_DIR}/include/)
 message(${CMAKE_CURRENT_SOURCE_DIR})
 
